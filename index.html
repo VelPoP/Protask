@@ -4,20 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ProTask Elite</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" />
     <style>
         :root {
-            --md-primary: #0061A4;
-            --md-on-primary: #ffffff;
-            --md-surface: #FDFCFF;
-            --md-surface-variant: #E0E2EC;
-            --md-on-surface: #1A1C1E;
-            --md-outline: #74777F;
-            --md-error: #BA1A1A;
-            --md-success: #198754;
-            --priority-high: #BA1A1A;
-            --priority-med: #E28100;
-            --priority-low: #198754;
+            --md-primary: #0061A4; --md-on-primary: #ffffff; --md-surface: #FDFCFF;
+            --md-surface-variant: #E0E2EC; --md-on-surface: #1A1C1E; --md-outline: #74777F;
+            --md-error: #BA1A1A; --md-success: #198754;
+            --priority-high: #BA1A1A; --priority-med: #E28100; --priority-low: #198754;
         }
 
         body {
@@ -39,7 +33,6 @@
             display: flex; flex-direction: column; border-left: 6px solid transparent;
             cursor: grab; transition: 0.2s;
         }
-        .task-card.dragging { opacity: 0.5; border: 2px dashed var(--md-primary); }
         .task-card.p-high { border-left-color: var(--priority-high); }
         .task-card.p-med { border-left-color: var(--priority-med); }
         .task-card.p-low { border-left-color: var(--priority-low); }
@@ -123,6 +116,7 @@
 <audio id="beep" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
 <script>
+    // Load tasks from source
     let tasks = JSON.parse(localStorage.getItem('pro_elite_final')) || [];
     let editId = null;
     let selectedPriority = 'low';
@@ -133,55 +127,82 @@
         return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
 
-    // --- SAVE & CONFLICT DETECTION ---
+    // --- SERVICE WORKER REGISTRATION ---
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+    }
+
+    // --- NOTIFICATIONS ---
+    function initNotifications() {
+        if (!("Notification" in window)) return alert("Not supported.");
+        Notification.requestPermission().then(p => {
+            if (p === "granted") {
+                document.getElementById('bellBtn').style.color = 'var(--md-success)';
+                // Test notification via Service Worker
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification("ProTask Elite", { body: "Background notifications are active!" });
+                });
+            }
+        });
+    }
+
+    // Improved alarm logic that communicates with the Service Worker
+    setInterval(() => {
+        const now = toLocalISO(new Date()).slice(0, 16);
+        tasks.forEach(t => {
+            if (!t.done && t.time.slice(0, 16) === now && !t.notified) {
+                t.notified = true;
+                document.getElementById('beep').play();
+                
+                // If in background, send to Service Worker
+                if (Notification.permission === "granted" && 'serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(reg => {
+                        reg.active.postMessage({
+                            type: 'SHOW_NOTIFICATION',
+                            title: "Task Due!",
+                            body: t.title
+                        });
+                    });
+                } else {
+                    alert("ALARM: " + t.title);
+                }
+                render();
+            }
+        });
+    }, 15000); // Check every 15 seconds
+
+    // Standard task functions
     function saveTask() {
         const title = document.getElementById('tTitle').value;
         if(!title) return;
-
         const dateVal = document.getElementById('tDate').value;
         let h = parseInt(document.getElementById('tHour').value);
         const m = document.getElementById('tMin').value.padStart(2, '0');
         const p = document.getElementById('tPeriod').value;
-
         if (p === "PM" && h < 12) h += 12;
         if (p === "AM" && h === 12) h = 0;
         const fullTime = `${dateVal}T${String(h).padStart(2, '0')}:${m}`;
 
-        // Conflict check
-        const overlap = tasks.find(t => t.time === fullTime && t.id !== editId && !t.done);
-        if(overlap && !confirm(`⚠️ TIME CONFLICT: "${overlap.title}" is already scheduled at this time. Save anyway?`)) return;
-
         if(editId) {
             const idx = tasks.findIndex(t => t.id === editId);
-            tasks[idx] = { ...tasks[idx], title, time: fullTime, priority: selectedPriority };
+            tasks[idx] = { ...tasks[idx], title, time: fullTime, priority: selectedPriority, notified: false };
             editId = null;
             document.getElementById('btnText').innerText = "Schedule Task";
         } else {
             tasks.push({ id: Date.now(), title, time: fullTime, priority: selectedPriority, done: false, notified: false });
         }
-        
         document.getElementById('tTitle').value = "";
         render();
     }
 
     function render() {
-        // AUTO-ASSORT BY TIME
         tasks.sort((a,b) => new Date(a.time) - new Date(b.time));
         localStorage.setItem('pro_elite_final', JSON.stringify(tasks));
-        
         const list = document.getElementById('list');
         list.innerHTML = "";
-        
         tasks.forEach(t => {
             const card = document.createElement('div');
             card.className = `task-card p-${t.priority} ${t.done ? 'done' : ''}`;
-            card.draggable = !t.done;
-            card.dataset.id = t.id;
-            
-            card.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', t.id));
-            card.addEventListener('dragover', (e) => e.preventDefault());
-            card.addEventListener('drop', handleDrop);
-
             card.innerHTML = `
                 <div class="task-main">
                     <div class="check-circle ${t.done ? 'checked' : ''}" onclick="toggle(${t.id})"><span class="material-symbols-outlined" style="font-size:18px">check</span></div>
@@ -192,67 +213,20 @@
                     <button class="btn-icon" onclick="editTask(${t.id})"><span class="material-symbols-outlined">edit</span></button>
                     <button class="btn-icon" onclick="del(${t.id})"><span class="material-symbols-outlined">delete</span></button>
                 </div>
-                ${!t.done ? `
-                <div class="quick-actions">
-                    <button class="q-btn" onclick="finishAndPull(${t.id})"><span class="material-symbols-outlined" style="font-size:14px">bolt</span> Finish</button>
-                    <button class="q-btn" onclick="bumperShift(${t.id})"><span class="material-symbols-outlined" style="font-size:14px">schedule</span> Bump</button>
-                </div>` : ''}
             `;
             list.appendChild(card);
         });
-
         const completed = tasks.filter(t => t.done).length;
         document.getElementById('progressBar').style.width = (tasks.length ? (completed/tasks.length)*100 : 0) + '%';
         findGaps();
     }
 
-    // --- MIC / VOICE (GITHUB HTTPS FIX) ---
-    function startVoice() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) return alert("Speech not supported.");
-        
-        const rec = new SpeechRecognition();
-        rec.lang = 'en-US';
-        document.getElementById('voiceBtn').style.color = 'red';
-        
-        rec.onresult = (e) => { document.getElementById('tTitle').value = e.results[0][0].transcript; };
-        rec.onend = () => { document.getElementById('voiceBtn').style.color = 'var(--md-primary)'; };
-        rec.start();
-    }
-
-    // --- NOTIFICATIONS & ALERTS ---
-    function initNotifications() {
-        if (!("Notification" in window)) return alert("Not supported.");
-        Notification.requestPermission().then(p => {
-            if (p === "granted") {
-                document.getElementById('bellBtn').style.color = 'var(--md-success)';
-                new Notification("Notifications Enabled", { body: "ProTask Elite will now alert you for upcoming tasks." });
-            }
-        });
-    }
-
-    setInterval(() => {
-        const now = toLocalISO(new Date()).slice(0, 16);
-        tasks.forEach(t => {
-            if (!t.done && t.time.slice(0, 16) === now && !t.notified) {
-                t.notified = true;
-                document.getElementById('beep').play();
-                if (Notification.permission === "granted") {
-                    new Notification("Task Due Now!", { body: t.title, icon: 'https://cdn-icons-png.flaticon.com/512/906/906334.png' });
-                } else {
-                    alert("ALARM: " + t.title);
-                }
-            }
-        });
-    }, 20000);
-
-    // --- TOOLS ---
+    // Helper functions from original file
     function findGaps() {
         const container = document.getElementById('suggestions');
         container.innerHTML = "";
         let check = new Date();
         check.setMinutes(check.getMinutes() < 30 ? 30 : 60, 0, 0);
-
         for(let i=0; i<6; i++) {
             const timeStr = toLocalISO(check);
             if (!tasks.some(t => !t.done && t.time === timeStr)) {
@@ -271,15 +245,12 @@
         }
     }
 
-    function handleDrop(e) {
-        const dId = e.dataTransfer.getData('text/plain');
-        const tId = this.dataset.id;
-        if (dId !== tId) {
-            const t1 = tasks.find(x => x.id == dId);
-            const t2 = tasks.find(x => x.id == tId);
-            [t1.time, t2.time] = [t2.time, t1.time];
-            render();
-        }
+    function startVoice() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return alert("Not supported.");
+        const rec = new SpeechRecognition();
+        rec.onresult = (e) => { document.getElementById('tTitle').value = e.results[0][0].transcript; };
+        rec.start();
     }
 
     function editTask(id) {
@@ -299,19 +270,6 @@
     function toggle(id) { tasks.find(x => x.id === id).done = !tasks.find(x => x.id === id).done; render(); }
     function del(id) { tasks = tasks.filter(x => x.id !== id); render(); }
     function snoozeAll() { tasks.forEach(t => { if(!t.done){ let d = new Date(t.time); d.setMinutes(d.getMinutes()+30); t.time = toLocalISO(d); }}); render(); }
-    function bumperShift(id) {
-        const start = new Date(tasks.find(t => t.id === id).time).getTime();
-        tasks.forEach(t => { if(!t.done && new Date(t.time).getTime() >= start) {
-            let d = new Date(t.time); d.setMinutes(d.getMinutes()+30); t.time = toLocalISO(d);
-        }});
-        render();
-    }
-    function finishAndPull(id) {
-        tasks.find(t => t.id === id).done = true;
-        const next = tasks.filter(t => !t.done).sort((a,b) => new Date(a.time) - new Date(b.time))[0];
-        if (next) next.time = toLocalISO(new Date());
-        render();
-    }
 
     function exportData() {
         const blob = new Blob([JSON.stringify(tasks)], {type: 'application/json'});
@@ -329,12 +287,7 @@
 
     window.onload = () => {
         document.getElementById('tDate').value = new Date().toISOString().split('T')[0];
-        if (Notification.permission === "granted") document.getElementById('bellBtn').style.color = 'var(--md-success)';
         render();
-        // Register service worker for background
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('data:text/javascript;base64,' + btoa('self.addEventListener("fetch", (e) => {});'));
-        }
     };
 </script>
 </body>
