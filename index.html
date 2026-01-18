@@ -25,18 +25,19 @@
             background-color: var(--md-surface);
             margin: 0; padding: 16px; padding-bottom: 480px;
             color: var(--md-on-surface);
+            user-select: none;
         }
 
         header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; }
         h1 { font-size: 28px; font-weight: 400; margin: 0; letter-spacing: -0.5px; }
 
-        .progress-track { height: 12px; background: var(--md-surface-variant); border-radius: 10px; margin: 16px 0; overflow: hidden; }
+        .progress-track { height: 10px; background: var(--md-surface-variant); border-radius: 10px; margin: 16px 0; overflow: hidden; }
         #progressBar { height: 100%; background: var(--md-primary); width: 0%; transition: width 0.6s; }
 
         .task-card {
             background: #f0f4f9; border-radius: 20px; padding: 16px; margin-bottom: 12px;
             display: flex; flex-direction: column; border-left: 6px solid transparent;
-            cursor: grab; transition: transform 0.1s;
+            cursor: grab; transition: 0.2s;
         }
         .task-card.dragging { opacity: 0.5; border: 2px dashed var(--md-primary); }
         .task-card.p-high { border-left-color: var(--priority-high); }
@@ -56,7 +57,7 @@
         .slot-chip { background: #D1E4FF; color: #001D36; padding: 8px 16px; border-radius: 16px; font-size: 12px; font-weight: 600; border: none; white-space: nowrap; }
 
         .input-group { background: #f0f4f9; border-radius: 16px; padding: 8px 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
-        input[type="text"] { background: none; border: none; width: 100%; height: 40px; font-size: 16px; outline: none; }
+        input[type="text"] { background: none; border: none; width: 100%; height: 40px; font-size: 16px; outline: none; flex: 1; }
         
         .priority-pill { padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid var(--md-outline); background: white; }
         .priority-pill.active[data-p="high"] { background: var(--priority-high); color: white; border-color: var(--priority-high); }
@@ -76,15 +77,14 @@
 <header>
     <h1>ProTask</h1>
     <div style="display:flex; gap: 4px;">
-        <button class="btn-icon" onclick="reqNotifications()" id="bellBtn"><span class="material-symbols-outlined">notifications</span></button>
-        <button class="btn-icon" onclick="exportJSON()"><span class="material-symbols-outlined">download</span></button>
+        <button class="btn-icon" onclick="initNotifications()" id="bellBtn"><span class="material-symbols-outlined">notifications</span></button>
+        <button class="btn-icon" onclick="exportData()"><span class="material-symbols-outlined">download</span></button>
         <button class="btn-icon" onclick="document.getElementById('importFile').click()"><span class="material-symbols-outlined">upload</span></button>
         <button class="btn-icon" onclick="snoozeAll()"><span class="material-symbols-outlined">forward_30</span></button>
-        <button class="btn-icon" onclick="clearAll()" style="color:var(--md-error)"><span class="material-symbols-outlined">delete_sweep</span></button>
     </div>
 </header>
 
-<input type="file" id="importFile" style="display:none" accept=".json" onchange="importJSON(event)">
+<input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
 <div class="progress-track"><div id="progressBar"></div></div>
 <div id="list"></div>
 
@@ -92,7 +92,7 @@
     <div class="suggestions-row" id="suggestions"></div>
     <div class="input-group">
         <button class="btn-icon" id="voiceBtn" onclick="startVoice()"><span class="material-symbols-outlined" style="color:var(--md-primary)">mic</span></button>
-        <input type="text" id="tTitle" placeholder="What's next?">
+        <input type="text" id="tTitle" placeholder="Task description...">
     </div>
 
     <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
@@ -103,11 +103,11 @@
     </div>
 
     <div style="display:flex; gap:8px; margin-bottom:8px;">
-        <input type="date" id="tDate" style="background:#f0f4f9; border:none; padding:12px; border-radius:16px; flex:1;">
-        <div style="display:flex; align-items:center; background:#f0f4f9; padding:0 12px; border-radius:16px;">
-            <input type="number" id="tHour" style="width:35px; border:none; background:none; font-weight:bold; text-align:center;" value="12">
+        <input type="date" id="tDate" style="background:#f0f4f9; border:none; padding:12px; border-radius:16px; flex:1.5;">
+        <div style="display:flex; align-items:center; background:#f0f4f9; padding:0 12px; border-radius:16px; flex:1;">
+            <input type="number" id="tHour" style="width:30px; border:none; background:none; font-weight:bold;" value="12">
             <b>:</b>
-            <input type="number" id="tMin" style="width:35px; border:none; background:none; font-weight:bold; text-align:center;" value="00">
+            <input type="number" id="tMin" style="width:30px; border:none; background:none; font-weight:bold;" value="00">
             <select id="tPeriod" style="border:none; background:none; font-weight:bold; color:var(--md-primary)">
                 <option>AM</option><option>PM</option>
             </select>
@@ -120,10 +120,10 @@
     </button>
 </div>
 
-<audio id="alarmSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+<audio id="beep" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
 <script>
-    let tasks = JSON.parse(localStorage.getItem('pro_elite_v5')) || [];
+    let tasks = JSON.parse(localStorage.getItem('pro_elite_final')) || [];
     let editId = null;
     let selectedPriority = 'low';
     const formatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -133,7 +133,7 @@
         return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
 
-    // --- CORE SAVE ---
+    // --- SAVE & CONFLICT DETECTION ---
     function saveTask() {
         const title = document.getElementById('tTitle').value;
         if(!title) return;
@@ -147,9 +147,9 @@
         if (p === "AM" && h === 12) h = 0;
         const fullTime = `${dateVal}T${String(h).padStart(2, '0')}:${m}`;
 
-        // Conflict Alert
-        const conflict = tasks.find(t => t.time === fullTime && t.id !== editId && !t.done);
-        if(conflict && !confirm(`CONFLICT: "${conflict.title}" already scheduled. Continue?`)) return;
+        // Conflict check
+        const overlap = tasks.find(t => t.time === fullTime && t.id !== editId && !t.done);
+        if(overlap && !confirm(`⚠️ TIME CONFLICT: "${overlap.title}" is already scheduled at this time. Save anyway?`)) return;
 
         if(editId) {
             const idx = tasks.findIndex(t => t.id === editId);
@@ -165,9 +165,9 @@
     }
 
     function render() {
-        // AUTO ASSORT WORK AS PER TIME
+        // AUTO-ASSORT BY TIME
         tasks.sort((a,b) => new Date(a.time) - new Date(b.time));
-        localStorage.setItem('pro_elite_v5', JSON.stringify(tasks));
+        localStorage.setItem('pro_elite_final', JSON.stringify(tasks));
         
         const list = document.getElementById('list');
         list.innerHTML = "";
@@ -178,7 +178,7 @@
             card.draggable = !t.done;
             card.dataset.id = t.id;
             
-            card.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', t.id); });
+            card.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', t.id));
             card.addEventListener('dragover', (e) => e.preventDefault());
             card.addEventListener('drop', handleDrop);
 
@@ -206,93 +206,59 @@
         findGaps();
     }
 
-    // --- BACKGROUND NOTIFICATIONS FIX ---
-    function reqNotifications() {
-        if (!("Notification" in window)) return alert("Browser does not support notifications.");
+    // --- MIC / VOICE (GITHUB HTTPS FIX) ---
+    function startVoice() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return alert("Speech not supported.");
+        
+        const rec = new SpeechRecognition();
+        rec.lang = 'en-US';
+        document.getElementById('voiceBtn').style.color = 'red';
+        
+        rec.onresult = (e) => { document.getElementById('tTitle').value = e.results[0][0].transcript; };
+        rec.onend = () => { document.getElementById('voiceBtn').style.color = 'var(--md-primary)'; };
+        rec.start();
+    }
+
+    // --- NOTIFICATIONS & ALERTS ---
+    function initNotifications() {
+        if (!("Notification" in window)) return alert("Not supported.");
         Notification.requestPermission().then(p => {
             if (p === "granted") {
                 document.getElementById('bellBtn').style.color = 'var(--md-success)';
-                new Notification("Notifications Active", { body: "ProTask will now alert you when tasks are due." });
+                new Notification("Notifications Enabled", { body: "ProTask Elite will now alert you for upcoming tasks." });
             }
         });
     }
 
-    // Check for tasks every 30 seconds
     setInterval(() => {
         const now = toLocalISO(new Date()).slice(0, 16);
         tasks.forEach(t => {
             if (!t.done && t.time.slice(0, 16) === now && !t.notified) {
                 t.notified = true;
-                document.getElementById('alarmSound').play(); // Audible beep
+                document.getElementById('beep').play();
                 if (Notification.permission === "granted") {
-                    // Try Service Worker notification (Better for background)
-                    if (navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.ready.then(reg => {
-                            reg.showNotification("ProTask Due!", { body: t.title });
-                        });
-                    } else {
-                        new Notification("ProTask Due!", { body: t.title });
-                    }
+                    new Notification("Task Due Now!", { body: t.title, icon: 'https://cdn-icons-png.flaticon.com/512/906/906334.png' });
                 } else {
-                    alert("TIME FOR: " + t.title);
+                    alert("ALARM: " + t.title);
                 }
             }
         });
-    }, 30000);
+    }, 20000);
 
-    // --- VOICE FIX (REQUIRES HTTPS) ---
-    function startVoice() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) return alert("Speech Recognition not supported.");
-        
-        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-            alert("SECURITY ERROR: Voice input requires an HTTPS connection. Please host this file on GitHub Pages or Vercel.");
-            return;
-        }
-
-        const rec = new SpeechRecognition();
-        rec.lang = 'en-US';
-        document.getElementById('voiceBtn').style.color = 'red';
-        rec.onresult = (e) => { document.getElementById('tTitle').value = e.results[0][0].transcript; };
-        rec.onend = () => { document.getElementById('voiceBtn').style.color = 'var(--md-primary)'; };
-        rec.onerror = () => { alert("Voice Error: Check permissions or connection."); };
-        rec.start();
-    }
-
-    // --- IMPORT / EXPORT JSON ---
-    function exportJSON() {
-        const blob = new Blob([JSON.stringify(tasks, null, 2)], {type: 'application/json'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `ProTask_Backup_${new Date().toLocaleDateString()}.json`;
-        a.click();
-    }
-
-    function importJSON(event) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                tasks = JSON.parse(e.target.result);
-                render();
-                alert("Import Successful!");
-            } catch(err) { alert("Invalid File."); }
-        };
-        reader.readAsText(event.target.files[0]);
-    }
-
-    // --- SLOTS & TOOLS ---
+    // --- TOOLS ---
     function findGaps() {
         const container = document.getElementById('suggestions');
         container.innerHTML = "";
-        let checkTime = new Date();
-        checkTime.setMinutes(checkTime.getMinutes() < 30 ? 30 : 60, 0, 0);
+        let check = new Date();
+        check.setMinutes(check.getMinutes() < 30 ? 30 : 60, 0, 0);
 
         for(let i=0; i<6; i++) {
-            const timeStr = toLocalISO(checkTime);
+            const timeStr = toLocalISO(check);
             if (!tasks.some(t => !t.done && t.time === timeStr)) {
                 const chip = document.createElement('button');
                 chip.className = "slot-chip";
-                chip.innerText = formatter.format(checkTime);
+                chip.innerText = formatter.format(check);
                 chip.onclick = () => {
                     const d = new Date(timeStr);
                     document.getElementById('tHour').value = d.getHours() % 12 || 12;
@@ -301,7 +267,7 @@
                 };
                 container.appendChild(chip);
             }
-            checkTime.setMinutes(checkTime.getMinutes() + 30);
+            check.setMinutes(check.getMinutes() + 30);
         }
     }
 
@@ -311,7 +277,7 @@
         if (dId !== tId) {
             const t1 = tasks.find(x => x.id == dId);
             const t2 = tasks.find(x => x.id == tId);
-            const temp = t1.time; t1.time = t2.time; t2.time = temp;
+            [t1.time, t2.time] = [t2.time, t1.time];
             render();
         }
     }
@@ -332,7 +298,6 @@
     function setPriority(p) { selectedPriority = p; document.querySelectorAll('.priority-pill').forEach(el => el.classList.toggle('active', el.dataset.p === p)); }
     function toggle(id) { tasks.find(x => x.id === id).done = !tasks.find(x => x.id === id).done; render(); }
     function del(id) { tasks = tasks.filter(x => x.id !== id); render(); }
-    function clearAll() { if(confirm("Delete all data?")) { tasks = []; render(); }}
     function snoozeAll() { tasks.forEach(t => { if(!t.done){ let d = new Date(t.time); d.setMinutes(d.getMinutes()+30); t.time = toLocalISO(d); }}); render(); }
     function bumperShift(id) {
         const start = new Date(tasks.find(t => t.id === id).time).getTime();
@@ -348,14 +313,27 @@
         render();
     }
 
+    function exportData() {
+        const blob = new Blob([JSON.stringify(tasks)], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = "protask_backup.json";
+        a.click();
+    }
+
+    function importData(event) {
+        const reader = new FileReader();
+        reader.onload = (e) => { tasks = JSON.parse(e.target.result); render(); };
+        reader.readAsText(event.target.files[0]);
+    }
+
     window.onload = () => {
         document.getElementById('tDate').value = new Date().toISOString().split('T')[0];
+        if (Notification.permission === "granted") document.getElementById('bellBtn').style.color = 'var(--md-success)';
         render();
-        
-        // Register simple Service Worker for background support (only works on HTTPS)
+        // Register service worker for background
         if ('serviceWorker' in navigator) {
-            const sw = 'data:text/javascript;base64,' + btoa('self.addEventListener("push", (e) => { const d = e.data.json(); self.registration.showNotification(d.title, d); });');
-            navigator.serviceWorker.register(sw);
+            navigator.serviceWorker.register('data:text/javascript;base64,' + btoa('self.addEventListener("fetch", (e) => {});'));
         }
     };
 </script>
