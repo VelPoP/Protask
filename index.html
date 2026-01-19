@@ -29,9 +29,8 @@
         .task-card {
             background: #f0f4f9; border-radius: 20px; padding: 16px; margin-bottom: 12px;
             display: flex; flex-direction: column; border-left: 6px solid transparent;
-            cursor: grab; transition: transform 0.2s, opacity 0.2s;
+            transition: 0.2s;
         }
-        .task-card.dragging { opacity: 0.5; transform: scale(0.95); }
         .task-card.p-high { border-left-color: var(--priority-high); }
         .task-card.p-med { border-left-color: var(--priority-med); }
         .task-card.p-low { border-left-color: var(--priority-low); }
@@ -63,7 +62,7 @@
 <header>
     <h1>ProTask</h1>
     <div style="display:flex; gap: 4px;">
-        <button class="btn-icon" onclick="fullReset()" title="Reset All"><span class="material-symbols-outlined" style="color:var(--md-error)">delete_forever</span></button>
+        <button class="btn-icon" onclick="fullReset()" title="Full Reset"><span class="material-symbols-outlined" style="color:var(--md-error)">delete_forever</span></button>
         <button class="btn-icon" onclick="initNotifications()" id="bellBtn"><span class="material-symbols-outlined">notifications</span></button>
         <button class="btn-icon" onclick="exportData()"><span class="material-symbols-outlined">download</span></button>
         <button class="btn-icon" onclick="document.getElementById('importFile').click()"><span class="material-symbols-outlined">upload</span></button>
@@ -112,7 +111,7 @@
     let tasks = JSON.parse(localStorage.getItem('pro_elite_final')) || [];
     let editId = null;
     let selectedPriority = 'low';
-    let isRepeat = false;
+    let isRepeat = false; // Tracks the "Repeat Daily" toggle
     const formatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
     function toLocalISO(date) {
@@ -128,7 +127,7 @@
         });
     }
 
-    // Auto-Migration & History Cleanup
+    // --- DAILY MIGRATION LOGIC ---
     function migrateTasks() {
         const now = new Date();
         const todayStr = now.toISOString().split('T')[0];
@@ -137,15 +136,15 @@
             const taskDate = new Date(t.time);
             const taskDateStr = t.time.split('T')[0];
 
-            // Delete old completed tasks (Keep app clean)
+            // 1. Delete old completed tasks to keep history clean
             if (t.done && taskDateStr < todayStr) return false;
 
-            // Move undone tasks to next day same time
+            // 2. Move unfinished tasks to the next day at the same time
             if (!t.done && taskDate < now && taskDateStr < todayStr) {
                 const nextDay = new Date(taskDate);
                 nextDay.setDate(nextDay.getDate() + 1);
                 t.time = toLocalISO(nextDay);
-                t.notified = false;
+                t.notified = false; // Reset alert for new day
             }
             return true;
         });
@@ -162,14 +161,12 @@
                         reg.active.postMessage({ type: 'SHOW_NOTIFICATION', title: "Task Due!", body: t.title });
                     });
                 }
-                // Handle Daily Repeat
-                if(t.repeat) {
-                    setTimeout(() => {
-                        const nextDay = new Date(t.time);
-                        nextDay.setDate(nextDay.getDate() + 1);
-                        tasks.push({...t, id: Date.now(), time: toLocalISO(nextDay), notified: false, done: false});
-                        render();
-                    }, 60000); 
+                
+                // If set to repeat daily, automatically schedule for tomorrow
+                if (t.repeat) {
+                    const nextDay = new Date(t.time);
+                    nextDay.setDate(nextDay.getDate() + 1);
+                    tasks.push({...t, id: Date.now(), time: toLocalISO(nextDay), notified: false, done: false});
                 }
                 render();
             }
@@ -187,10 +184,6 @@
         if (p === "AM" && h === 12) h = 0;
         const fullTime = `${dateVal}T${String(h).padStart(2, '0')}:${m}`;
 
-        // Collision Check
-        const conflict = tasks.find(t => t.time === fullTime && !t.done && t.id !== editId);
-        if(conflict && !confirm(`Conflict! "${conflict.title}" is already set for this time. Continue?`)) return;
-
         if(editId) {
             const idx = tasks.findIndex(t => t.id === editId);
             tasks[idx] = { ...tasks[idx], title, time: fullTime, priority: selectedPriority, repeat: isRepeat, notified: false };
@@ -199,7 +192,7 @@
         } else {
             tasks.push({ id: Date.now(), title, time: fullTime, priority: selectedPriority, done: false, notified: false, repeat: isRepeat });
         }
-        resetInput();
+        resetForm();
         render();
     }
 
@@ -208,17 +201,9 @@
         localStorage.setItem('pro_elite_final', JSON.stringify(tasks));
         const list = document.getElementById('list');
         list.innerHTML = "";
-        
-        tasks.forEach((t, index) => {
+        tasks.forEach(t => {
             const card = document.createElement('div');
             card.className = `task-card p-${t.priority} ${t.done ? 'done' : ''}`;
-            card.draggable = true;
-            card.dataset.index = index;
-            
-            // Drag Events
-            card.addEventListener('dragstart', (e) => card.classList.add('dragging'));
-            card.addEventListener('dragend', (e) => card.classList.remove('dragging'));
-
             card.innerHTML = `
                 <div class="task-main">
                     <div class="check-circle ${t.done ? 'checked' : ''}" onclick="toggle(${t.id})">
@@ -237,33 +222,26 @@
             `;
             list.appendChild(card);
         });
-
-        // Drop Logic
-        list.addEventListener('dragover', e => {
-            e.preventDefault();
-            const dragging = document.querySelector('.dragging');
-            const siblings = [...list.querySelectorAll('.task-card:not(.dragging)')];
-            let nextSibling = siblings.find(sib => e.clientY <= sib.getBoundingClientRect().top + sib.getBoundingClientRect().height / 2);
-            list.insertBefore(dragging, nextSibling);
-        });
-
         const completed = tasks.filter(t => t.done).length;
         document.getElementById('progressBar').style.width = (tasks.length ? (completed/tasks.length)*100 : 0) + '%';
     }
 
+    // Toggle the repeat setting for the new task
     function toggleRepeat() {
         isRepeat = !isRepeat;
         document.getElementById('repeatBtn').style.color = isRepeat ? 'var(--md-primary)' : 'var(--md-outline)';
     }
 
+    // 1st: Full Reset Button Function
     function fullReset() {
-        if(confirm("Clear all data and history?")) {
+        if(confirm("Are you sure? This will delete ALL tasks and settings forever.")) {
             tasks = [];
+            localStorage.removeItem('pro_elite_final');
             render();
         }
     }
 
-    function resetInput() {
+    function resetForm() {
         document.getElementById('tTitle').value = "";
         isRepeat = false;
         document.getElementById('repeatBtn').style.color = 'var(--md-outline)';
@@ -299,8 +277,16 @@
         reader.readAsText(event.target.files[0]);
     }
 
+    function startVoice() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return alert("Not supported.");
+        const rec = new SpeechRecognition();
+        rec.onresult = (e) => { document.getElementById('tTitle').value = e.results[0][0].transcript; };
+        rec.start();
+    }
+
     window.onload = () => {
-        migrateTasks();
+        migrateTasks(); // Runs carry-over logic on launch
         document.getElementById('tDate').value = new Date().toISOString().split('T')[0];
         render();
     };
