@@ -16,12 +16,12 @@
 
         body {
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--md-surface); margin: 0; padding: 16px; padding-bottom: 500px;
+            background-color: var(--md-surface); margin: 0; padding: 16px; padding-bottom: 520px;
             color: var(--md-on-surface); user-select: none;
         }
 
         header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; }
-        h1 { font-size: 28px; font-weight: 400; margin: 0; }
+        h1 { font-size: 28px; font-weight: 400; margin: 0; letter-spacing: -0.5px; }
 
         .progress-track { height: 10px; background: var(--md-surface-variant); border-radius: 10px; margin: 16px 0; overflow: hidden; }
         #progressBar { height: 100%; background: var(--md-primary); width: 0%; transition: width 0.6s; }
@@ -44,10 +44,13 @@
         .task-time { font-size: 13px; color: var(--md-primary); font-weight: 600; display: flex; align-items: center; gap: 4px; }
 
         .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 32px 32px 0 0; padding: 20px; box-shadow: 0 -8px 32px rgba(0,0,0,0.1); z-index: 100; }
+        .suggestions-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; scrollbar-width: none; }
+        .slot-chip { background: #D1E4FF; color: #001D36; padding: 8px 16px; border-radius: 16px; font-size: 12px; font-weight: 600; border: none; white-space: nowrap; }
+
         .input-group { background: #f0f4f9; border-radius: 16px; padding: 8px 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
         input[type="text"] { background: none; border: none; width: 100%; height: 40px; font-size: 16px; outline: none; flex: 1; }
         
-        .priority-pill { padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid var(--md-outline); background: white; cursor: pointer;}
+        .priority-pill { padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid var(--md-outline); background: white; cursor: pointer; }
         .priority-pill.active[data-p="high"] { background: var(--priority-high); color: white; border-color: var(--priority-high); }
         .priority-pill.active[data-p="med"] { background: var(--priority-med); color: white; border-color: var(--priority-med); }
         .priority-pill.active[data-p="low"] { background: var(--priority-low); color: white; border-color: var(--priority-low); }
@@ -62,10 +65,11 @@
 <header>
     <h1>ProTask</h1>
     <div style="display:flex; gap: 4px;">
-        <button class="btn-icon" onclick="fullReset()" title="Full Reset"><span class="material-symbols-outlined" style="color:var(--md-error)">delete_forever</span></button>
+        <button class="btn-icon" onclick="fullReset()" title="Reset All Data"><span class="material-symbols-outlined" style="color:var(--md-error)">delete_forever</span></button>
         <button class="btn-icon" onclick="initNotifications()" id="bellBtn"><span class="material-symbols-outlined">notifications</span></button>
         <button class="btn-icon" onclick="exportData()"><span class="material-symbols-outlined">download</span></button>
         <button class="btn-icon" onclick="document.getElementById('importFile').click()"><span class="material-symbols-outlined">upload</span></button>
+        <button class="btn-icon" onclick="snoozeAll()"><span class="material-symbols-outlined">forward_30</span></button>
     </div>
 </header>
 
@@ -74,6 +78,8 @@
 <div id="list"></div>
 
 <div class="bottom-sheet">
+    <div class="suggestions-row" id="suggestions"></div>
+    
     <div class="input-group">
         <button class="btn-icon" id="voiceBtn" onclick="startVoice()"><span class="material-symbols-outlined" style="color:var(--md-primary)">mic</span></button>
         <input type="text" id="tTitle" placeholder="Task description...">
@@ -111,7 +117,7 @@
     let tasks = JSON.parse(localStorage.getItem('pro_elite_final')) || [];
     let editId = null;
     let selectedPriority = 'low';
-    let isRepeat = false; // Tracks the "Repeat Daily" toggle
+    let isRepeat = false;
     const formatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
     function toLocalISO(date) {
@@ -122,12 +128,18 @@
     if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
 
     function initNotifications() {
+        if (!("Notification" in window)) return alert("Not supported.");
         Notification.requestPermission().then(p => {
-            if (p === "granted") document.getElementById('bellBtn').style.color = 'var(--md-success)';
+            if (p === "granted") {
+                document.getElementById('bellBtn').style.color = 'var(--md-success)';
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification("ProTask Elite", { body: "Background notifications are active!" });
+                });
+            }
         });
     }
 
-    // --- DAILY MIGRATION LOGIC ---
+    // Daily Migration & History Cleanup
     function migrateTasks() {
         const now = new Date();
         const todayStr = now.toISOString().split('T')[0];
@@ -136,15 +148,15 @@
             const taskDate = new Date(t.time);
             const taskDateStr = t.time.split('T')[0];
 
-            // 1. Delete old completed tasks to keep history clean
+            // Delete old completed tasks to save space
             if (t.done && taskDateStr < todayStr) return false;
 
-            // 2. Move unfinished tasks to the next day at the same time
+            // Move undone tasks to the next day at the same time
             if (!t.done && taskDate < now && taskDateStr < todayStr) {
                 const nextDay = new Date(taskDate);
                 nextDay.setDate(nextDay.getDate() + 1);
                 t.time = toLocalISO(nextDay);
-                t.notified = false; // Reset alert for new day
+                t.notified = false;
             }
             return true;
         });
@@ -156,13 +168,12 @@
             if (!t.done && t.time.slice(0, 16) === now && !t.notified) {
                 t.notified = true;
                 document.getElementById('beep').play();
-                if (Notification.permission === "granted") {
+                if (Notification.permission === "granted" && 'serviceWorker' in navigator) {
                     navigator.serviceWorker.ready.then(reg => {
                         reg.active.postMessage({ type: 'SHOW_NOTIFICATION', title: "Task Due!", body: t.title });
                     });
                 }
                 
-                // If set to repeat daily, automatically schedule for tomorrow
                 if (t.repeat) {
                     const nextDay = new Date(t.time);
                     nextDay.setDate(nextDay.getDate() + 1);
@@ -184,6 +195,12 @@
         if (p === "AM" && h === 12) h = 0;
         const fullTime = `${dateVal}T${String(h).padStart(2, '0')}:${m}`;
 
+        // 2nd: Collision System
+        const collision = tasks.find(t => t.time === fullTime && !t.done && t.id !== editId);
+        if (collision) {
+            if (!confirm(`Conflict! "${collision.title}" is already scheduled for this time. Add anyway?`)) return;
+        }
+
         if(editId) {
             const idx = tasks.findIndex(t => t.id === editId);
             tasks[idx] = { ...tasks[idx], title, time: fullTime, priority: selectedPriority, repeat: isRepeat, notified: false };
@@ -192,7 +209,7 @@
         } else {
             tasks.push({ id: Date.now(), title, time: fullTime, priority: selectedPriority, done: false, notified: false, repeat: isRepeat });
         }
-        resetForm();
+        resetInput();
         render();
     }
 
@@ -201,6 +218,7 @@
         localStorage.setItem('pro_elite_final', JSON.stringify(tasks));
         const list = document.getElementById('list');
         list.innerHTML = "";
+        
         tasks.forEach(t => {
             const card = document.createElement('div');
             card.className = `task-card p-${t.priority} ${t.done ? 'done' : ''}`;
@@ -222,41 +240,66 @@
             `;
             list.appendChild(card);
         });
+
         const completed = tasks.filter(t => t.done).length;
         document.getElementById('progressBar').style.width = (tasks.length ? (completed/tasks.length)*100 : 0) + '%';
+        findGaps();
     }
 
-    // Toggle the repeat setting for the new task
+    // 1st: Auto Suggest Timebox Logic
+    function findGaps() {
+        const container = document.getElementById('suggestions');
+        container.innerHTML = "";
+        let check = new Date();
+        check.setMinutes(check.getMinutes() < 30 ? 30 : 60, 0, 0);
+        for(let i=0; i<6; i++) {
+            const timeStr = toLocalISO(check);
+            if (!tasks.some(t => !t.done && t.time === timeStr)) {
+                const chip = document.createElement('button');
+                chip.className = "slot-chip";
+                chip.innerText = formatter.format(check);
+                chip.onclick = () => {
+                    const d = new Date(timeStr);
+                    document.getElementById('tHour').value = d.getHours() % 12 || 12;
+                    document.getElementById('tMin').value = String(d.getMinutes()).padStart(2, '0');
+                    document.getElementById('tPeriod').value = d.getHours() >= 12 ? "PM" : "AM";
+                };
+                container.appendChild(chip);
+            }
+            check.setMinutes(check.getMinutes() + 30);
+        }
+    }
+
     function toggleRepeat() {
         isRepeat = !isRepeat;
         document.getElementById('repeatBtn').style.color = isRepeat ? 'var(--md-primary)' : 'var(--md-outline)';
     }
 
-    // 1st: Full Reset Button Function
     function fullReset() {
-        if(confirm("Are you sure? This will delete ALL tasks and settings forever.")) {
+        if(confirm("Clear all tasks and history forever?")) {
             tasks = [];
             localStorage.removeItem('pro_elite_final');
             render();
         }
     }
 
-    function resetForm() {
+    function resetInput() {
         document.getElementById('tTitle').value = "";
         isRepeat = false;
         document.getElementById('repeatBtn').style.color = 'var(--md-outline)';
     }
 
+    function setPriority(p) { selectedPriority = p; document.querySelectorAll('.priority-pill').forEach(el => el.classList.toggle('active', el.dataset.p === p)); }
     function toggle(id) { tasks.find(x => x.id === id).done = !tasks.find(x => x.id === id).done; render(); }
     function del(id) { tasks = tasks.filter(x => x.id !== id); render(); }
-    function setPriority(p) { selectedPriority = p; document.querySelectorAll('.priority-pill').forEach(el => el.classList.toggle('active', el.dataset.p === p)); }
-    
+    function snoozeAll() { tasks.forEach(t => { if(!t.done){ let d = new Date(t.time); d.setMinutes(d.getMinutes()+30); t.time = toLocalISO(d); }}); render(); }
+
     function editTask(id) {
         const t = tasks.find(x => x.id === id);
         editId = id;
         document.getElementById('tTitle').value = t.title;
         setPriority(t.priority);
-        isRepeat = t.repeat;
+        isRepeat = t.repeat || false;
         document.getElementById('repeatBtn').style.color = isRepeat ? 'var(--md-primary)' : 'var(--md-outline)';
         const d = new Date(t.time);
         document.getElementById('tDate').value = t.time.split('T')[0];
@@ -286,7 +329,7 @@
     }
 
     window.onload = () => {
-        migrateTasks(); // Runs carry-over logic on launch
+        migrateTasks();
         document.getElementById('tDate').value = new Date().toISOString().split('T')[0];
         render();
     };
