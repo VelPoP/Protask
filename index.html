@@ -29,9 +29,9 @@
         .task-card {
             background: #f0f4f9; border-radius: 20px; padding: 16px; margin-bottom: 12px;
             display: flex; flex-direction: column; border-left: 6px solid transparent;
-            cursor: grab; transition: transform 0.2s, opacity 0.2s;
+            cursor: grab; transition: 0.2s;
         }
-        .task-card.dragging { opacity: 0.5; transform: scale(0.95); border: 2px dashed var(--md-outline); }
+        .task-card.dragging { opacity: 0.5; transform: scale(0.95); }
         .task-card.p-high { border-left-color: var(--priority-high); }
         .task-card.p-med { border-left-color: var(--priority-med); }
         .task-card.p-low { border-left-color: var(--priority-low); }
@@ -70,7 +70,6 @@
         <button class="btn-icon" onclick="initNotifications()" id="bellBtn"><span class="material-symbols-outlined">notifications</span></button>
         <button class="btn-icon" onclick="exportData()"><span class="material-symbols-outlined">download</span></button>
         <button class="btn-icon" onclick="document.getElementById('importFile').click()"><span class="material-symbols-outlined">upload</span></button>
-        <button class="btn-icon" onclick="snoozeAll()"><span class="material-symbols-outlined">forward_30</span></button>
     </div>
 </header>
 
@@ -82,7 +81,7 @@
     <div class="suggestions-row" id="suggestions"></div>
     <div class="input-group">
         <button class="btn-icon" onclick="startVoice()"><span class="material-symbols-outlined" style="color:var(--md-primary)">mic</span></button>
-        <input type="text" id="tTitle" placeholder="What needs to be done?">
+        <input type="text" id="tTitle" placeholder="Add a task...">
         <button class="btn-icon" onclick="toggleRepeat()" id="repeatBtn" title="Daily Repeat"><span class="material-symbols-outlined">repeat</span></button>
     </div>
 
@@ -125,11 +124,7 @@
         return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
 
-    if ('serviceWorker' in navigator) { 
-        navigator.serviceWorker.register('sw.js').then(reg => {
-            console.log('SW Registered');
-        }); 
-    }
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
 
     function initNotifications() {
         Notification.requestPermission().then(p => {
@@ -137,14 +132,13 @@
         });
     }
 
-    // Daily Migration & Cleanup (Point 5 & 8)
     function migrateTasks() {
         const now = new Date();
         const todayStr = now.toISOString().split('T')[0];
         tasks = tasks.filter(t => {
             const tDate = new Date(t.time);
             const tDateStr = t.time.split('T')[0];
-            if (t.done && tDateStr < todayStr) return false; // Clear history
+            if (t.done && tDateStr < todayStr) return false; // Clean history
             if (!t.done && tDate < now && tDateStr < todayStr) {
                 const next = new Date(tDate);
                 next.setDate(next.getDate() + 1);
@@ -155,13 +149,17 @@
         });
     }
 
-    // Alarm Check + Scheduled Trigger Message
     setInterval(() => {
         const now = toLocalISO(new Date()).slice(0, 16);
         tasks.forEach(t => {
             if (!t.done && t.time.slice(0, 16) === now && !t.notified) {
                 t.notified = true;
                 document.getElementById('beep').play();
+                if (Notification.permission === "granted") {
+                    navigator.serviceWorker.ready.then(reg => {
+                        reg.active.postMessage({ type: 'SHOW_NOTIFICATION', title: "Task Due!", body: t.title });
+                    });
+                }
                 if (t.repeat) {
                     const next = new Date(t.time);
                     next.setDate(next.getDate() + 1);
@@ -170,7 +168,7 @@
                 render();
             }
         });
-    }, 10000);
+    }, 15000);
 
     function saveTask() {
         const title = document.getElementById('tTitle').value;
@@ -183,9 +181,9 @@
         if (p === "AM" && h === 12) h = 0;
         const fullTime = `${dateVal}T${String(h).padStart(2, '0')}:${m}`;
 
-        // Collision Check (Point 6)
+        // Collision Check
         const conflict = tasks.find(t => t.time === fullTime && !t.done && t.id !== editId);
-        if(conflict && !confirm(`Conflict! "${conflict.title}" is already set. Continue?`)) return;
+        if(conflict && !confirm(`Overlap! "${conflict.title}" is at this time. Save anyway?`)) return;
 
         if(editId) {
             const idx = tasks.findIndex(t => t.id === editId);
@@ -193,21 +191,7 @@
             editId = null;
             document.getElementById('btnText').innerText = "Schedule Task";
         } else {
-            const newTask = { id: Date.now(), title, time: fullTime, priority: selectedPriority, done: false, notified: false, repeat: isRepeat };
-            tasks.push(newTask);
-            
-            // RELIABILITY: Schedule notification with Service Worker immediately
-            if ('serviceWorker' in navigator && Notification.permission === "granted") {
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.active.postMessage({
-                        type: 'SCHEDULE_NOTIFICATION',
-                        title: "Task Due!",
-                        body: newTask.title,
-                        time: newTask.time,
-                        id: newTask.id.toString()
-                    });
-                });
-            }
+            tasks.push({ id: Date.now(), title, time: fullTime, priority: selectedPriority, done: false, notified: false, repeat: isRepeat });
         }
         resetForm();
         render();
@@ -223,12 +207,6 @@
             const card = document.createElement('div');
             card.className = `task-card p-${t.priority} ${t.done ? 'done' : ''}`;
             card.draggable = true;
-            card.dataset.index = index;
-            
-            // Drag Events (Point 3)
-            card.addEventListener('dragstart', () => card.classList.add('dragging'));
-            card.addEventListener('dragend', () => card.classList.remove('dragging'));
-
             card.innerHTML = `
                 <div class="task-main">
                     <div class="check-circle ${t.done ? 'checked' : ''}" onclick="toggle(${t.id})">
@@ -245,40 +223,40 @@
                     <button class="btn-icon" onclick="del(${t.id})"><span class="material-symbols-outlined">delete</span></button>
                 </div>
             `;
+            // Drag events
+            card.ondragstart = () => card.classList.add('dragging');
+            card.ondragend = () => card.classList.remove('dragging');
             list.appendChild(card);
         });
 
-        // Drop Logic (Point 3)
-        list.addEventListener('dragover', e => {
+        list.ondragover = e => {
             e.preventDefault();
             const dragging = document.querySelector('.dragging');
             const siblings = [...list.querySelectorAll('.task-card:not(.dragging)')];
             const next = siblings.find(s => e.clientY <= s.getBoundingClientRect().top + s.offsetHeight / 2);
             if(dragging) list.insertBefore(dragging, next);
-        });
+        };
 
         const completed = tasks.filter(t => t.done).length;
         document.getElementById('progressBar').style.width = (tasks.length ? (completed/tasks.length)*100 : 0) + '%';
         findGaps();
     }
 
-    // Auto Suggest Timebox (Point 1)
     function findGaps() {
         const container = document.getElementById('suggestions');
         container.innerHTML = "";
         let check = new Date();
         check.setMinutes(check.getMinutes() < 30 ? 30 : 60, 0, 0);
-        for(let i=0; i<6; i++) {
+        for(let i=0; i<5; i++) {
             const timeStr = toLocalISO(check);
             if (!tasks.some(t => !t.done && t.time === timeStr)) {
                 const chip = document.createElement('button');
                 chip.className = "slot-chip";
                 chip.innerText = formatter.format(check);
                 chip.onclick = () => {
-                    const d = new Date(timeStr);
-                    document.getElementById('tHour').value = d.getHours() % 12 || 12;
-                    document.getElementById('tMin').value = String(d.getMinutes()).padStart(2, '0');
-                    document.getElementById('tPeriod').value = d.getHours() >= 12 ? "PM" : "AM";
+                    document.getElementById('tHour').value = check.getHours() % 12 || 12;
+                    document.getElementById('tMin').value = String(check.getMinutes()).padStart(2, '0');
+                    document.getElementById('tPeriod').value = check.getHours() >= 12 ? "PM" : "AM";
                 };
                 container.appendChild(chip);
             }
@@ -292,7 +270,7 @@
     }
 
     function fullReset() {
-        if(confirm("Wipe all data and history?")) {
+        if(confirm("Wipe everything?")) {
             tasks = [];
             localStorage.clear();
             render();
@@ -308,8 +286,7 @@
     function toggle(id) { tasks.find(x => x.id === id).done = !tasks.find(x => x.id === id).done; render(); }
     function del(id) { tasks = tasks.filter(x => x.id !== id); render(); }
     function setPriority(p) { selectedPriority = p; document.querySelectorAll('.priority-pill').forEach(el => el.classList.toggle('active', el.dataset.p === p)); }
-    function snoozeAll() { tasks.forEach(t => { if(!t.done){ let d = new Date(t.time); d.setMinutes(d.getMinutes()+30); t.time = toLocalISO(d); }}); render(); }
-
+    
     function editTask(id) {
         const t = tasks.find(x => x.id === id);
         editId = id;
