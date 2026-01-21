@@ -13,7 +13,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// Listen for background messages from Firebase
+// Handle Background Messages [cite: 109]
 messaging.onBackgroundMessage((payload) => {
     const notificationTitle = payload.notification.title;
     const notificationOptions = {
@@ -21,14 +21,4 @@ messaging.onBackgroundMessage((payload) => {
         icon: 'https://cdn-icons-png.flaticon.com/512/906/906334.png'
     };
     self.registration.showNotification(notificationTitle, notificationOptions);
-});
-
-// Generic notification display for local tests
-self.addEventListener('message', (event) => {
-    if (event.data.type === 'SHOW_NOTIFICATION') {
-        self.registration.showNotification(event.data.title, {
-            body: event.data.body,
-            icon: 'https://cdn-icons-png.flaticon.com/512/906/906334.png'
-        });
-    }
 });
