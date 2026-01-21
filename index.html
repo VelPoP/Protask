@@ -107,26 +107,7 @@
 
 <audio id="beep" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
-<script type="module">
-
-// 1. Import the Firebase App and Messaging libraries from the CDN
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
-
-// 2. Paste YOUR firebaseConfig here
-const firebaseConfig = {
-    apiKey: "AIzaSyB1u-t7oQLWDg333noZcmtscbOo8fftPYE",
-    authDomain: "protask-97ac8.firebaseapp.com",
-    projectId: "protask-97ac8",
-    storageBucket: "protask-97ac8.firebasestorage.app",
-    messagingSenderId: "18921043127",
-    appId: "1:18921043127:web:7780ee8e5b7ce919684932"
-};
-
-// 3. Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
-
+<script>
     let tasks = JSON.parse(localStorage.getItem('pro_elite_final')) || [];
     let editId = null;
     let selectedPriority = 'low';
