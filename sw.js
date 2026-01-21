@@ -1,8 +1,6 @@
-// 1. Import the Firebase "Tools"
 importScripts('https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js');
 importScripts('https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js');
 
-// 2. Initialize Firebase inside the Service Worker [cite: 4]
 const firebaseConfig = {
     apiKey: "AIzaSyB1u-t7oQLWDg333noZcmtscbOo8fftPYE",
     authDomain: "protask-97ac8.firebaseapp.com",
@@ -15,7 +13,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// 3. Handle Background Push Notifications (from Firebase) [cite: 4]
+// Listen for background messages from Firebase
 messaging.onBackgroundMessage((payload) => {
     const notificationTitle = payload.notification.title;
     const notificationOptions = {
@@ -25,22 +23,12 @@ messaging.onBackgroundMessage((payload) => {
     self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// 4. Handle Local Notifications (when you are using the app) [cite: 2, 3]
-self.addEventListener('install', (event) => {
-    self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-    event.waitUntil(clients.claim());
-});
-
+// Generic notification display for local tests
 self.addEventListener('message', (event) => {
     if (event.data.type === 'SHOW_NOTIFICATION') {
         self.registration.showNotification(event.data.title, {
             body: event.data.body,
-            icon: 'https://cdn-icons-png.flaticon.com/512/906/906334.png',
-            vibrate: [200, 100, 200],
-            tag: 'task-alert'
+            icon: 'https://cdn-icons-png.flaticon.com/512/906/906334.png'
         });
     }
 });
