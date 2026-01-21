@@ -127,47 +127,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const messaging = getMessaging(app);
 
-// 4. THE PERMISSION FUNCTION
-async function requestToken() {
-    try {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-            console.log('Notification permission granted.');
-            
-            // Generate the token
-            // REPLACE 'PASTE_YOUR_PUBLIC_VAPID_KEY_HERE' with your key from Firebase
-            const token = await getToken(messaging, { 
-                vapidKey: 'BCVagHMWKomUbaoQdNy-vHYAhl22WsRT9jg-dKabIgtCWQaFVJN966m6wYMPrM0v8y3T5Khk6XmCkv5YDz4vxKI' 
-            });
-
-            if (token) {
-                console.log('Your Device Token:', token);
-                alert("Success! Check your browser console (F12) for the token.");
-            }
-        } else {
-            console.log('Permission denied.');
-        }
-    } catch (err) {
-        console.log('An error occurred: ', err);
-    }
-}
-
-// 5. UPDATE YOUR WINDOW.ONLOAD
-// This replaces your existing window.onload block
-window.onload = () => {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('firebase-messaging-sw.js')
-            .then((registration) => {
-                console.log("Service Worker Registered");
-                // We call the token request here
-                requestToken();
-            })
-            .catch((err) => console.log("SW Registration failed:", err));
-    }
-    // Call your existing render function to show your tasks
-    if (typeof render === "function") render(); 
-};
-    
     let tasks = JSON.parse(localStorage.getItem('pro_elite_final')) || [];
     let editId = null;
     let selectedPriority = 'low';
@@ -179,7 +138,7 @@ window.onload = () => {
         return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
 
-    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('firebase-messaging-sw.js'); }
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
 
     function initNotifications() {
         Notification.requestPermission().then(p => {
