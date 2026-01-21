@@ -6,9 +6,6 @@
     <title>ProTask Elite</title>
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" />
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
-
     <style>
         :root {
             --md-primary: #0061A4; --md-on-primary: #ffffff; --md-surface: #FDFCFF;
@@ -16,133 +13,312 @@
             --md-error: #BA1A1A; --md-success: #198754;
             --priority-high: #BA1A1A; --priority-med: #E28100; --priority-low: #198754;
         }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--md-surface); margin: 0; padding: 16px; padding-bottom: 450px; color: var(--md-on-surface); }
-        header { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; }
-        .header-top { display: flex; justify-content: space-between; align-items: center; }
-        #tokenBox { display: none; font-size: 10px; background: #f0f4f9; border: 1px dashed var(--md-outline); padding: 10px; border-radius: 12px; word-break: break-all; margin-bottom: 10px; color: var(--md-primary); }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--md-surface); margin: 0; padding: 16px; padding-bottom: 520px;
+            color: var(--md-on-surface); user-select: none;
+        }
+
+        header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; }
+        h1 { font-size: 28px; font-weight: 400; margin: 0; letter-spacing: -0.5px; }
+
         .progress-track { height: 10px; background: var(--md-surface-variant); border-radius: 10px; margin: 16px 0; overflow: hidden; }
         #progressBar { height: 100%; background: var(--md-primary); width: 0%; transition: width 0.6s; }
-        .task-card { background: #f0f4f9; border-radius: 20px; padding: 16px; margin-bottom: 12px; display: flex; flex-direction: column; border-left: 6px solid transparent; }
+
+        .task-card {
+            background: #f0f4f9; border-radius: 20px; padding: 16px; margin-bottom: 12px;
+            display: flex; flex-direction: column; border-left: 6px solid transparent;
+            transition: 0.2s;
+        }
         .task-card.p-high { border-left-color: var(--priority-high); }
         .task-card.p-med { border-left-color: var(--priority-med); }
         .task-card.p-low { border-left-color: var(--priority-low); }
+
         .task-main { display: flex; align-items: center; gap: 12px; }
+        .check-circle { width: 28px; height: 28px; border: 2px solid var(--md-outline); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .check-circle.checked { background: var(--md-success); border-color: var(--md-success); color: white; }
+        
+        .task-info { flex-grow: 1; }
+        .task-title { font-size: 16px; font-weight: 600; }
+        .task-time { font-size: 13px; color: var(--md-primary); font-weight: 600; display: flex; align-items: center; gap: 4px; }
+
         .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 32px 32px 0 0; padding: 20px; box-shadow: 0 -8px 32px rgba(0,0,0,0.1); z-index: 100; }
+        .suggestions-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; scrollbar-width: none; }
+        .slot-chip { background: #D1E4FF; color: #001D36; padding: 8px 16px; border-radius: 16px; font-size: 12px; font-weight: 600; border: none; white-space: nowrap; }
+
         .input-group { background: #f0f4f9; border-radius: 16px; padding: 8px 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
         input[type="text"] { background: none; border: none; width: 100%; height: 40px; font-size: 16px; outline: none; flex: 1; }
-        .save-btn { background: var(--md-primary); color: white; border: none; width: 100%; height: 56px; border-radius: 28px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn-icon { background: none; border: none; color: var(--md-outline); cursor: pointer; padding: 8px; }
-        .priority-pill { padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid var(--md-outline); background: white; }
-        .priority-pill.active[data-p="low"] { background: var(--priority-low); color: white; border-color: var(--priority-low); }
-        .priority-pill.active[data-p="med"] { background: var(--priority-med); color: white; border-color: var(--priority-med); }
+        
+        .priority-pill { padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid var(--md-outline); background: white; cursor: pointer; }
         .priority-pill.active[data-p="high"] { background: var(--priority-high); color: white; border-color: var(--priority-high); }
+        .priority-pill.active[data-p="med"] { background: var(--priority-med); color: white; border-color: var(--priority-med); }
+        .priority-pill.active[data-p="low"] { background: var(--priority-low); color: white; border-color: var(--priority-low); }
+
+        .save-btn { background: var(--md-primary); color: white; border: none; width: 100%; height: 56px; border-radius: 28px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; }
+        .btn-icon { background: none; border: none; color: var(--md-outline); cursor: pointer; padding: 8px; border-radius: 50%; }
         .done { opacity: 0.4; filter: grayscale(1); }
     </style>
 </head>
 <body>
 
 <header>
-    <div class="header-top">
-        <h1>ProTask Elite</h1>
-        <div style="display:flex; gap: 4px;">
-            <button class="btn-icon" onclick="fullReset()"><span class="material-symbols-outlined" style="color:var(--md-error)">delete_forever</span></button>
-            <button class="btn-icon" onclick="initNotifications()" id="bellBtn"><span class="material-symbols-outlined">notifications</span></button>
-        </div>
+    <h1>ProTask</h1>
+    <div style="display:flex; gap: 4px;">
+        <button class="btn-icon" onclick="fullReset()" title="Reset All Data"><span class="material-symbols-outlined" style="color:var(--md-error)">delete_forever</span></button>
+        <button class="btn-icon" onclick="initNotifications()" id="bellBtn"><span class="material-symbols-outlined">notifications</span></button>
+        <button class="btn-icon" onclick="exportData()"><span class="material-symbols-outlined">download</span></button>
+        <button class="btn-icon" onclick="document.getElementById('importFile').click()"><span class="material-symbols-outlined">upload</span></button>
+        <button class="btn-icon" onclick="snoozeAll()"><span class="material-symbols-outlined">forward_30</span></button>
     </div>
-    <div id="tokenBox">Getting phone key...</div>
 </header>
 
+<input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
 <div class="progress-track"><div id="progressBar"></div></div>
 <div id="list"></div>
 
 <div class="bottom-sheet">
+    <div class="suggestions-row" id="suggestions"></div>
+    
     <div class="input-group">
-        <button class="btn-icon" onclick="startVoice()"><span class="material-symbols-outlined" style="color:var(--md-primary)">mic</span></button>
+        <button class="btn-icon" id="voiceBtn" onclick="startVoice()"><span class="material-symbols-outlined" style="color:var(--md-primary)">mic</span></button>
         <input type="text" id="tTitle" placeholder="Task description...">
+        <button class="btn-icon" onclick="toggleRepeat()" id="repeatBtn" title="Daily Repeat"><span class="material-symbols-outlined">repeat</span></button>
     </div>
+
     <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center;">
+        <span style="font-size:11px; font-weight:bold; color:var(--md-outline)">PRIORITY:</span>
         <div class="priority-pill active" data-p="low" onclick="setPriority('low')">Low</div>
         <div class="priority-pill" data-p="med" onclick="setPriority('med')">Med</div>
         <div class="priority-pill" data-p="high" onclick="setPriority('high')">High</div>
     </div>
-    <input type="date" id="tDate" style="width:100%; padding:12px; border-radius:16px; background:#f0f4f9; border:none; margin-bottom:12px;">
-    <button class="save-btn" onclick="saveTask()">Schedule Task</button>
+
+    <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <input type="date" id="tDate" style="background:#f0f4f9; border:none; padding:12px; border-radius:16px; flex:1.5;">
+        <div style="display:flex; align-items:center; background:#f0f4f9; padding:0 12px; border-radius:16px; flex:1;">
+            <input type="number" id="tHour" style="width:30px; border:none; background:none; font-weight:bold;" value="12">
+            <b>:</b>
+            <input type="number" id="tMin" style="width:30px; border:none; background:none; font-weight:bold;" value="00">
+            <select id="tPeriod" style="border:none; background:none; font-weight:bold; color:var(--md-primary)">
+                <option>AM</option><option>PM</option>
+            </select>
+        </div>
+    </div>
+
+    <button class="save-btn" onclick="saveTask()">
+        <span class="material-symbols-outlined" id="btnIcon">add</span>
+        <span id="btnText">Schedule Task</span>
+    </button>
 </div>
 
 <audio id="beep" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
 <script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyB1u-t7oQLWDg333noZcmtscbOo8fftPYE",
-        authDomain: "protask-97ac8.firebaseapp.com",
-        projectId: "protask-97ac8",
-        storageBucket: "protask-97ac8.firebasestorage.app",
-        messagingSenderId: "18921043127",
-        appId: "1:18921043127:web:7780ee8e5b7ce919684932"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging();
-
     let tasks = JSON.parse(localStorage.getItem('pro_elite_final')) || [];
+    let editId = null;
     let selectedPriority = 'low';
+    let isRepeat = false;
+    const formatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
-    if ('serviceWorker' in navigator) { 
-        navigator.serviceWorker.register('sw.js');
+    function toLocalISO(date) {
+        const pad = (n) => n.toString().padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
 
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+
     function initNotifications() {
-        Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
+        if (!("Notification" in window)) return alert("Not supported.");
+        Notification.requestPermission().then(p => {
+            if (p === "granted") {
                 document.getElementById('bellBtn').style.color = 'var(--md-success)';
-                navigator.serviceWorker.ready.then((reg) => {
-                    messaging.getToken({ 
-                        vapidKey: 'BCVagHMWKomUbaoQdNy-vHYAhl22WsRT9jg-dKabIgtCWQaFVJN966m6wYMPrM0v8y3T5Khk6XmCkv5YDz4vxKI',
-                        serviceWorkerRegistration: reg 
-                    })
-                    .then((token) => {
-                        if (token) {
-                            const box = document.getElementById('tokenBox');
-                            box.style.display = 'block';
-                            box.innerText = "YOUR PHONE KEY: " + token;
-                        }
-                    });
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification("ProTask Elite", { body: "Background notifications are active!" });
                 });
             }
         });
     }
 
+    // Daily Migration & History Cleanup
+    function migrateTasks() {
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+
+        tasks = tasks.filter(t => {
+            const taskDate = new Date(t.time);
+            const taskDateStr = t.time.split('T')[0];
+
+            // Delete old completed tasks to save space
+            if (t.done && taskDateStr < todayStr) return false;
+
+            // Move undone tasks to the next day at the same time
+            if (!t.done && taskDate < now && taskDateStr < todayStr) {
+                const nextDay = new Date(taskDate);
+                nextDay.setDate(nextDay.getDate() + 1);
+                t.time = toLocalISO(nextDay);
+                t.notified = false;
+            }
+            return true;
+        });
+    }
+
+    setInterval(() => {
+        const now = toLocalISO(new Date()).slice(0, 16);
+        tasks.forEach(t => {
+            if (!t.done && t.time.slice(0, 16) === now && !t.notified) {
+                t.notified = true;
+                document.getElementById('beep').play();
+                if (Notification.permission === "granted" && 'serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(reg => {
+                        reg.active.postMessage({ type: 'SHOW_NOTIFICATION', title: "Task Due!", body: t.title });
+                    });
+                }
+                
+                if (t.repeat) {
+                    const nextDay = new Date(t.time);
+                    nextDay.setDate(nextDay.getDate() + 1);
+                    tasks.push({...t, id: Date.now(), time: toLocalISO(nextDay), notified: false, done: false});
+                }
+                render();
+            }
+        });
+    }, 15000);
+
     function saveTask() {
         const title = document.getElementById('tTitle').value;
-        const date = document.getElementById('tDate').value;
         if(!title) return;
-        tasks.push({ id: Date.now(), title, time: date, priority: selectedPriority, done: false, notified: false });
-        document.getElementById('tTitle').value = "";
+        const dateVal = document.getElementById('tDate').value;
+        let h = parseInt(document.getElementById('tHour').value);
+        const m = document.getElementById('tMin').value.padStart(2, '0');
+        const p = document.getElementById('tPeriod').value;
+        if (p === "PM" && h < 12) h += 12;
+        if (p === "AM" && h === 12) h = 0;
+        const fullTime = `${dateVal}T${String(h).padStart(2, '0')}:${m}`;
+
+        // 2nd: Collision System
+        const collision = tasks.find(t => t.time === fullTime && !t.done && t.id !== editId);
+        if (collision) {
+            if (!confirm(`Conflict! "${collision.title}" is already scheduled for this time. Add anyway?`)) return;
+        }
+
+        if(editId) {
+            const idx = tasks.findIndex(t => t.id === editId);
+            tasks[idx] = { ...tasks[idx], title, time: fullTime, priority: selectedPriority, repeat: isRepeat, notified: false };
+            editId = null;
+            document.getElementById('btnText').innerText = "Schedule Task";
+        } else {
+            tasks.push({ id: Date.now(), title, time: fullTime, priority: selectedPriority, done: false, notified: false, repeat: isRepeat });
+        }
+        resetInput();
         render();
     }
 
     function render() {
+        tasks.sort((a,b) => new Date(a.time) - new Date(b.time));
         localStorage.setItem('pro_elite_final', JSON.stringify(tasks));
         const list = document.getElementById('list');
         list.innerHTML = "";
+        
         tasks.forEach(t => {
-            list.innerHTML += `
-                <div class="task-card p-${t.priority} ${t.done ? 'done' : ''}">
-                    <div class="task-main">
-                        <div style="flex:1">
-                            <b>${t.title}</b><br><small>${t.time}</small>
-                        </div>
-                        <button class="btn-icon" onclick="del(${t.id})"><span class="material-symbols-outlined">delete</span></button>
+            const card = document.createElement('div');
+            card.className = `task-card p-${t.priority} ${t.done ? 'done' : ''}`;
+            card.innerHTML = `
+                <div class="task-main">
+                    <div class="check-circle ${t.done ? 'checked' : ''}" onclick="toggle(${t.id})">
+                        <span class="material-symbols-outlined" style="font-size:18px">check</span>
                     </div>
-                </div>`;
+                    <div class="task-info">
+                        <div class="task-title">${t.title}</div>
+                        <div class="task-time">
+                            ${formatter.format(new Date(t.time))}
+                            ${t.repeat ? '<span class="material-symbols-outlined" style="font-size:14px">repeat</span>' : ''}
+                        </div>
+                    </div>
+                    <button class="btn-icon" onclick="editTask(${t.id})"><span class="material-symbols-outlined">edit</span></button>
+                    <button class="btn-icon" onclick="del(${t.id})"><span class="material-symbols-outlined">delete</span></button>
+                </div>
+            `;
+            list.appendChild(card);
         });
+
         const completed = tasks.filter(t => t.done).length;
         document.getElementById('progressBar').style.width = (tasks.length ? (completed/tasks.length)*100 : 0) + '%';
+        findGaps();
     }
 
-    function del(id) { tasks = tasks.filter(x => x.id !== id); render(); }
+    // 1st: Auto Suggest Timebox Logic
+    function findGaps() {
+        const container = document.getElementById('suggestions');
+        container.innerHTML = "";
+        let check = new Date();
+        check.setMinutes(check.getMinutes() < 30 ? 30 : 60, 0, 0);
+        for(let i=0; i<6; i++) {
+            const timeStr = toLocalISO(check);
+            if (!tasks.some(t => !t.done && t.time === timeStr)) {
+                const chip = document.createElement('button');
+                chip.className = "slot-chip";
+                chip.innerText = formatter.format(check);
+                chip.onclick = () => {
+                    const d = new Date(timeStr);
+                    document.getElementById('tHour').value = d.getHours() % 12 || 12;
+                    document.getElementById('tMin').value = String(d.getMinutes()).padStart(2, '0');
+                    document.getElementById('tPeriod').value = d.getHours() >= 12 ? "PM" : "AM";
+                };
+                container.appendChild(chip);
+            }
+            check.setMinutes(check.getMinutes() + 30);
+        }
+    }
+
+    function toggleRepeat() {
+        isRepeat = !isRepeat;
+        document.getElementById('repeatBtn').style.color = isRepeat ? 'var(--md-primary)' : 'var(--md-outline)';
+    }
+
+    function fullReset() {
+        if(confirm("Clear all tasks and history forever?")) {
+            tasks = [];
+            localStorage.removeItem('pro_elite_final');
+            render();
+        }
+    }
+
+    function resetInput() {
+        document.getElementById('tTitle').value = "";
+        isRepeat = false;
+        document.getElementById('repeatBtn').style.color = 'var(--md-outline)';
+    }
+
     function setPriority(p) { selectedPriority = p; document.querySelectorAll('.priority-pill').forEach(el => el.classList.toggle('active', el.dataset.p === p)); }
-    function fullReset() { if(confirm("Clear all?")) { tasks = []; localStorage.removeItem('pro_elite_final'); render(); } }
+    function toggle(id) { tasks.find(x => x.id === id).done = !tasks.find(x => x.id === id).done; render(); }
+    function del(id) { tasks = tasks.filter(x => x.id !== id); render(); }
+    function snoozeAll() { tasks.forEach(t => { if(!t.done){ let d = new Date(t.time); d.setMinutes(d.getMinutes()+30); t.time = toLocalISO(d); }}); render(); }
+
+    function editTask(id) {
+        const t = tasks.find(x => x.id === id);
+        editId = id;
+        document.getElementById('tTitle').value = t.title;
+        setPriority(t.priority);
+        isRepeat = t.repeat || false;
+        document.getElementById('repeatBtn').style.color = isRepeat ? 'var(--md-primary)' : 'var(--md-outline)';
+        const d = new Date(t.time);
+        document.getElementById('tDate').value = t.time.split('T')[0];
+        document.getElementById('tHour').value = d.getHours() % 12 || 12;
+        document.getElementById('tMin').value = String(d.getMinutes()).padStart(2, '0');
+        document.getElementById('tPeriod').value = d.getHours() >= 12 ? "PM" : "AM";
+        document.getElementById('btnText').innerText = "Update Task";
+    }
+
+    function exportData() {
+        const blob = new Blob([JSON.stringify(tasks)], {type: 'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "protask_backup.json"; a.click();
+    }
+
+    function importData(event) {
+        const reader = new FileReader();
+        reader.onload = (e) => { tasks = JSON.parse(e.target.result); render(); };
+        reader.readAsText(event.target.files[0]);
+    }
 
     function startVoice() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -152,27 +328,12 @@
         rec.start();
     }
 
-    // Check for notifications every 15 seconds [cite: 67]
-    setInterval(() => {
-        const now = new Date().toISOString().split('T')[0];
-        tasks.forEach(t => {
-            if (!t.done && t.time === now && !t.notified) {
-                t.notified = true;
-                document.getElementById('beep').play();
-                if (Notification.permission === "granted" && 'serviceWorker' in navigator) {
-                    navigator.serviceWorker.ready.then(reg => {
-                        reg.active.postMessage({ type: 'SHOW_NOTIFICATION', title: "Task Due!", body: t.title });
-                    });
-                }
-                render();
-            }
-        });
-    }, 15000);
-
     window.onload = () => {
+        migrateTasks();
         document.getElementById('tDate').value = new Date().toISOString().split('T')[0];
         render();
     };
 </script>
 </body>
+
 </html>
