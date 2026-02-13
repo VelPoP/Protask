@@ -459,27 +459,37 @@
             const taskTime = new Date(task.time);
             const timeDiff = taskTime - now;
             
-            // Trigger if task is due (within 1 minute window)
-            if (timeDiff <= 60000 && timeDiff >= -60000) {
+            // Trigger if task is due (0 to 30 seconds after scheduled time)
+            // This prevents early notifications and gives 2 check cycles (30 sec window)
+            if (timeDiff <= 0 && timeDiff >= -30000) {
                 log('Task due: ' + task.title);
                 triggerNotification(task);
                 task.notified = true;
+                task.missedAt = now.toISOString(); // Track when it was due
                 render(); // Save state
             }
         });
     }
 
     function triggerNotification(task) {
-        // Play beep sound
+        // Play beep sound (works when screen is on)
         try {
             document.getElementById('beep').play().catch(e => log('Audio play failed: ' + e));
         } catch (err) {
             log('Beep failed: ' + err);
         }
         
-        // Vibrate
+        // SUPER STRONG VIBRATION - 5 second SOS pattern
+        // Long-Long-Long, Short-Short-Short, Long-Long-Long (like Morse SOS)
         if ('vibrate' in navigator) {
-            navigator.vibrate([200, 100, 200, 100, 200]);
+            navigator.vibrate([
+                500, 200, 500, 200, 500,  // 3 LONG (SOS: S)
+                200,                       // pause
+                200, 100, 200, 100, 200,   // 3 SHORT (SOS: O)
+                200,                       // pause
+                500, 200, 500, 200, 500    // 3 LONG (SOS: S)
+            ]);
+            log('Strong vibration triggered (SOS pattern)');
         }
         
         // Show notification
@@ -562,11 +572,31 @@
 
         if(editId) {
             const idx = tasks.findIndex(t => t.id === editId);
-            tasks[idx] = { ...tasks[idx], title, time: fullTime, priority: selectedPriority, repeat: isRepeat, notified: false };
+            tasks[idx] = { 
+                ...tasks[idx], 
+                title, 
+                time: fullTime, 
+                priority: selectedPriority, 
+                repeat: isRepeat, 
+                notified: false,  // FORCE reset notification flag
+                missedAt: null,   // Clear missed tracking
+                done: false       // Also reset done status when editing
+            };
             editId = null;
             document.getElementById('btnText').innerText = "Schedule Task";
+            log('Task updated - notification flag reset');
         } else {
-            tasks.push({ id: Date.now(), title, time: fullTime, priority: selectedPriority, done: false, notified: false, repeat: isRepeat });
+            tasks.push({ 
+                id: Date.now(), 
+                title, 
+                time: fullTime, 
+                priority: selectedPriority, 
+                done: false, 
+                notified: false, 
+                repeat: isRepeat,
+                missedAt: null
+            });
+            log('New task created');
         }
         
         resetInput();
@@ -724,10 +754,13 @@
     }
 
     // ========== AUTO-RESUME & LIFECYCLE ==========
-    // Re-acquire wake lock if visibility changes
+    // On-wake alarm - plays when you unlock phone if tasks were missed
     document.addEventListener('visibilitychange', async () => {
-        if (guardianActive && document.visibilityState === 'visible') {
-            if (wakeLock === null && 'wakeLock' in navigator) {
+        if (document.visibilityState === 'visible') {
+            log('Screen became visible - checking for missed tasks');
+            
+            // Re-acquire wake lock if guardian is active
+            if (guardianActive && wakeLock === null && 'wakeLock' in navigator) {
                 try {
                     wakeLock = await navigator.wakeLock.request('screen');
                     log('Wake lock re-acquired after visibility change');
@@ -735,8 +768,66 @@
                     log('Wake lock re-acquire failed: ' + err);
                 }
             }
+            
+            // Check for missed/overdue tasks
+            checkMissedTasks();
         }
     });
+
+    function checkMissedTasks() {
+        const now = new Date();
+        const missedTasks = tasks.filter(t => {
+            if (t.done) return false;
+            const taskTime = new Date(t.time);
+            // Task is overdue by more than 1 minute
+            return taskTime < now && (now - taskTime) > 60000 && (now - taskTime) < 3600000; // Within last hour
+        });
+
+        if (missedTasks.length > 0) {
+            log(`Found ${missedTasks.length} missed task(s)`);
+            
+            // Play LOUD alarm sound (3 beeps)
+            playLoudAlarm();
+            
+            // Show alert with missed tasks
+            const taskList = missedTasks.map(t => `• ${t.title} (${formatter.format(new Date(t.time))})`).join('\n');
+            setTimeout(() => {
+                if (confirm(`⚠️ OVERDUE TASKS!\n\n${taskList}\n\nMark as complete?`)) {
+                    missedTasks.forEach(t => t.done = true);
+                    render();
+                }
+            }, 500); // Small delay so alarm plays first
+        }
+    }
+
+    function playLoudAlarm() {
+        try {
+            // Play 3 loud beeps using Web Audio API
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            for (let i = 0; i < 3; i++) {
+                const oscillator = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(ctx.destination);
+                
+                oscillator.frequency.value = 880; // A5 note (higher pitch, more attention-grabbing)
+                gainNode.gain.value = 0.5; // LOUD (50% volume)
+                
+                const startTime = ctx.currentTime + (i * 0.4); // Stagger beeps
+                oscillator.start(startTime);
+                oscillator.stop(startTime + 0.3);
+            }
+            
+            log('Loud alarm played (3 beeps)');
+            
+            // Clean up after all beeps finish
+            setTimeout(() => ctx.close(), 2000);
+        } catch (err) {
+            log('Loud alarm failed: ' + err);
+        }
+    }
 
     // Detect audio interruption and warn user
     if (audioContext) {
