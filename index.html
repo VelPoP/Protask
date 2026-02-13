@@ -14,14 +14,65 @@
             --priority-high: #BA1A1A; --priority-med: #E28100; --priority-low: #198754;
         }
 
+        * { box-sizing: border-box; }
+
         body {
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--md-surface); margin: 0; padding: 16px; padding-bottom: 520px;
+            background-color: var(--md-surface); margin: 0; padding: 16px; padding-bottom: 600px;
             color: var(--md-on-surface); user-select: none;
         }
 
         header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; }
         h1 { font-size: 28px; font-weight: 400; margin: 0; letter-spacing: -0.5px; }
+
+        /* Guardian Status Card */
+        .guardian-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px; padding: 20px; margin: 16px 0; color: white;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+        .guardian-status {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .status-text {
+            font-size: 14px; font-weight: 600; letter-spacing: 0.5px;
+        }
+        .heartbeat {
+            width: 12px; height: 12px; background: #4ade80; border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+        }
+        .guardian-btn {
+            background: rgba(255,255,255,0.2); border: 2px solid white;
+            color: white; padding: 14px 24px; border-radius: 12px;
+            font-weight: 600; font-size: 16px; width: 100%;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            cursor: pointer; transition: 0.2s;
+        }
+        .guardian-btn:active { transform: scale(0.98); }
+        .guardian-btn.active {
+            background: rgba(74, 222, 128, 0.3);
+            border-color: #4ade80;
+        }
+        .test-mode-toggle {
+            margin-top: 12px; display: flex; align-items: center; gap: 8px;
+            font-size: 12px; opacity: 0.9;
+        }
+        .toggle-switch {
+            width: 40px; height: 20px; background: rgba(255,255,255,0.3);
+            border-radius: 10px; position: relative; cursor: pointer;
+            transition: 0.2s;
+        }
+        .toggle-switch.active { background: rgba(74, 222, 128, 0.5); }
+        .toggle-switch .slider {
+            width: 16px; height: 16px; background: white; border-radius: 50%;
+            position: absolute; top: 2px; left: 2px; transition: 0.2s;
+        }
+        .toggle-switch.active .slider { left: 22px; }
 
         .progress-track { height: 10px; background: var(--md-surface-variant); border-radius: 10px; margin: 16px 0; overflow: hidden; }
         #progressBar { height: 100%; background: var(--md-primary); width: 0%; transition: width 0.6s; }
@@ -45,7 +96,7 @@
 
         .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 32px 32px 0 0; padding: 20px; box-shadow: 0 -8px 32px rgba(0,0,0,0.1); z-index: 100; }
         .suggestions-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; scrollbar-width: none; }
-        .slot-chip { background: #D1E4FF; color: #001D36; padding: 8px 16px; border-radius: 16px; font-size: 12px; font-weight: 600; border: none; white-space: nowrap; }
+        .slot-chip { background: #D1E4FF; color: #001D36; padding: 8px 16px; border-radius: 16px; font-size: 12px; font-weight: 600; border: none; white-space: nowrap; cursor: pointer; }
 
         .input-group { background: #f0f4f9; border-radius: 16px; padding: 8px 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
         input[type="text"] { background: none; border: none; width: 100%; height: 40px; font-size: 16px; outline: none; flex: 1; }
@@ -55,9 +106,16 @@
         .priority-pill.active[data-p="med"] { background: var(--priority-med); color: white; border-color: var(--priority-med); }
         .priority-pill.active[data-p="low"] { background: var(--priority-low); color: white; border-color: var(--priority-low); }
 
-        .save-btn { background: var(--md-primary); color: white; border: none; width: 100%; height: 56px; border-radius: 28px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; }
+        .save-btn { background: var(--md-primary); color: white; border: none; width: 100%; height: 56px; border-radius: 28px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; cursor: pointer; }
         .btn-icon { background: none; border: none; color: var(--md-outline); cursor: pointer; padding: 8px; border-radius: 50%; }
         .done { opacity: 0.4; filter: grayscale(1); }
+
+        .warning-banner {
+            background: #FEF3C7; color: #92400E; padding: 12px 16px;
+            border-radius: 12px; margin: 12px 0; display: none;
+            align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
+        }
+        .warning-banner.show { display: flex; }
     </style>
 </head>
 <body>
@@ -66,7 +124,6 @@
     <h1>ProTask</h1>
     <div style="display:flex; gap: 4px;">
         <button class="btn-icon" onclick="fullReset()" title="Reset All Data"><span class="material-symbols-outlined" style="color:var(--md-error)">delete_forever</span></button>
-        <button class="btn-icon" onclick="initNotifications()" id="bellBtn"><span class="material-symbols-outlined">notifications</span></button>
         <button class="btn-icon" onclick="exportData()"><span class="material-symbols-outlined">download</span></button>
         <button class="btn-icon" onclick="document.getElementById('importFile').click()"><span class="material-symbols-outlined">upload</span></button>
         <button class="btn-icon" onclick="snoozeAll()"><span class="material-symbols-outlined">forward_30</span></button>
@@ -74,6 +131,35 @@
 </header>
 
 <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+
+<!-- Guardian Control Card -->
+<div class="guardian-card">
+    <div class="guardian-status">
+        <div>
+            <div class="status-text" id="guardianStatus">GUARDIAN: INACTIVE</div>
+            <div style="font-size:11px; opacity:0.8; margin-top:4px" id="guardianSubtext">Tap START to enable notifications</div>
+        </div>
+        <div class="heartbeat" id="heartbeat" style="display:none"></div>
+    </div>
+    
+    <button class="guardian-btn" id="guardianBtn" onclick="toggleGuardian()">
+        <span class="material-symbols-outlined">play_arrow</span>
+        <span id="guardianBtnText">START GUARDIAN</span>
+    </button>
+
+    <div class="test-mode-toggle">
+        <span>Test Mode (Audible Beeps)</span>
+        <div class="toggle-switch" id="testToggle" onclick="toggleTestMode()">
+            <div class="slider"></div>
+        </div>
+    </div>
+</div>
+
+<div class="warning-banner" id="warningBanner">
+    <span class="material-symbols-outlined">warning</span>
+    <span id="warningText">Guardian stopped! Tap START to resume.</span>
+</div>
+
 <div class="progress-track"><div id="progressBar"></div></div>
 <div id="list"></div>
 
@@ -96,9 +182,9 @@
     <div style="display:flex; gap:8px; margin-bottom:8px;">
         <input type="date" id="tDate" style="background:#f0f4f9; border:none; padding:12px; border-radius:16px; flex:1.5;">
         <div style="display:flex; align-items:center; background:#f0f4f9; padding:0 12px; border-radius:16px; flex:1;">
-            <input type="number" id="tHour" style="width:30px; border:none; background:none; font-weight:bold;" value="12">
+            <input type="number" id="tHour" style="width:30px; border:none; background:none; font-weight:bold;" value="12" min="1" max="12">
             <b>:</b>
-            <input type="number" id="tMin" style="width:30px; border:none; background:none; font-weight:bold;" value="00">
+            <input type="number" id="tMin" style="width:30px; border:none; background:none; font-weight:bold;" value="00" min="0" max="59">
             <select id="tPeriod" style="border:none; background:none; font-weight:bold; color:var(--md-primary)">
                 <option>AM</option><option>PM</option>
             </select>
@@ -113,144 +199,383 @@
 
 <audio id="beep" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-    const firebaseConfig = {
-        apiKey: "AIzaSyB1u-t7oQLWDg333noZcmtscbOo8fftPYE",
-        authDomain: "protask-97ac8.firebaseapp.com",
-        projectId: "protask-97ac8",
-        storageBucket: "protask-97ac8.firebasestorage.app",
-        messagingSenderId: "18921043127",
-        appId: "1:18921043127:web:7780ee8e5b7ce919684932"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const tasksCol = collection(db, "tasks");
-
-    let tasks = [];
+<script>
+    // ========== STATE ==========
+    let tasks = JSON.parse(localStorage.getItem('pro_elite_final')) || [];
     let editId = null;
     let selectedPriority = 'low';
     let isRepeat = false;
+    let guardianActive = false;
+    let testMode = false;
+    let audioContext = null;
+    let audioSource = null;
+    let notificationCheckInterval = null;
+    let testBeepInterval = null;
+    let wakeLock = null;
+    
     const formatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
+    // ========== UTILITY FUNCTIONS ==========
     function toLocalISO(date) {
         const pad = (n) => n.toString().padStart(2, '0');
         return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
     }
 
-    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+    function log(msg) {
+        console.log(`[ProTask] ${msg}`);
+    }
 
-    // MAKE FUNCTIONS GLOBAL SO BUTTONS WORK
-    window.initNotifications = () => {
-        if (!("Notification" in window)) return alert("Not supported.");
-        Notification.requestPermission().then(p => {
-            if (p === "granted") {
-                document.getElementById('bellBtn').style.color = 'var(--md-success)';
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.showNotification("ProTask Elite", { body: "Background notifications are active!" });
-                });
+    // ========== SERVICE WORKER ==========
+    if ('serviceWorker' in navigator) { 
+        navigator.serviceWorker.register('sw.js').then(() => {
+            log('Service Worker registered');
+        });
+    }
+
+    // ========== AUDIO GUARDIAN ==========
+    function startSilentAudio() {
+        try {
+            // Create audio context if not exists
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                log('Audio context created');
+            }
+
+            // Resume if suspended
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            // Create 1 second of pure silence
+            const buffer = audioContext.createBuffer(1, audioContext.sampleRate * 1, audioContext.sampleRate);
+            // Buffer is already silent (all zeros by default)
+
+            // Create source
+            audioSource = audioContext.createBufferSource();
+            audioSource.buffer = buffer;
+            audioSource.loop = true; // Loop forever
+            audioSource.connect(audioContext.destination);
+            audioSource.start(0);
+
+            log('Silent audio started (pure silence)');
+            return true;
+        } catch (err) {
+            log('Failed to start silent audio: ' + err);
+            return false;
+        }
+    }
+
+    function stopSilentAudio() {
+        try {
+            if (audioSource) {
+                audioSource.stop();
+                audioSource.disconnect();
+                audioSource = null;
+                log('Silent audio stopped');
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+        } catch (err) {
+            log('Error stopping audio: ' + err);
+        }
+    }
+
+    function playTestBeep() {
+        try {
+            // Play a quiet 440Hz beep for 0.2 seconds
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            
+            oscillator.frequency.value = 440; // A4 note
+            gainNode.gain.value = 0.1; // Quiet volume
+            
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.2);
+            
+            // Clean up
+            setTimeout(() => ctx.close(), 500);
+        } catch (err) {
+            log('Test beep failed: ' + err);
+        }
+    }
+
+    // ========== GUARDIAN CONTROL ==========
+    async function toggleGuardian() {
+        if (guardianActive) {
+            // STOP Guardian
+            stopGuardian();
+        } else {
+            // START Guardian
+            await startGuardian();
+        }
+    }
+
+    async function startGuardian() {
+        // Request notification permission
+        if (Notification.permission !== 'granted') {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                alert('Please enable notifications to use Guardian mode!');
+                return;
+            }
+        }
+
+        // Start silent audio
+        const audioStarted = startSilentAudio();
+        if (!audioStarted) {
+            alert('Failed to start audio guardian. Please try again.');
+            return;
+        }
+
+        // Request wake lock
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+                log('Wake lock acquired');
+            }
+        } catch (err) {
+            log('Wake lock failed (ok, will work without it): ' + err);
+        }
+
+        // Start notification checker
+        if (notificationCheckInterval) clearInterval(notificationCheckInterval);
+        notificationCheckInterval = setInterval(checkForDueTasks, 15000); // Every 15 seconds
+        checkForDueTasks(); // Check immediately
+        log('Notification checker started');
+
+        // Start test beeps if in test mode
+        if (testMode) {
+            if (testBeepInterval) clearInterval(testBeepInterval);
+            testBeepInterval = setInterval(playTestBeep, 15000); // Every 15 seconds
+            playTestBeep(); // Play immediately
+            log('Test mode beeps enabled');
+        }
+
+        // Update UI
+        guardianActive = true;
+        updateGuardianUI();
+        
+        // Show confirmation
+        showNotification('ProTask Guardian Active', 'Notifications enabled! Keep app open in background.');
+    }
+
+    function stopGuardian() {
+        // Stop audio
+        stopSilentAudio();
+
+        // Stop intervals
+        if (notificationCheckInterval) {
+            clearInterval(notificationCheckInterval);
+            notificationCheckInterval = null;
+        }
+        if (testBeepInterval) {
+            clearInterval(testBeepInterval);
+            testBeepInterval = null;
+        }
+
+        // Release wake lock
+        if (wakeLock) {
+            wakeLock.release();
+            wakeLock = null;
+            log('Wake lock released');
+        }
+
+        // Update UI
+        guardianActive = false;
+        updateGuardianUI();
+        
+        log('Guardian stopped');
+    }
+
+    function updateGuardianUI() {
+        const btn = document.getElementById('guardianBtn');
+        const statusText = document.getElementById('guardianStatus');
+        const subtext = document.getElementById('guardianSubtext');
+        const btnText = document.getElementById('guardianBtnText');
+        const heartbeat = document.getElementById('heartbeat');
+        const warning = document.getElementById('warningBanner');
+
+        if (guardianActive) {
+            btn.classList.add('active');
+            btn.innerHTML = '<span class="material-symbols-outlined">stop</span><span>STOP GUARDIAN</span>';
+            statusText.textContent = 'GUARDIAN: ACTIVE';
+            subtext.textContent = testMode ? 'Test mode - You\'ll hear beeps every 15s' : 'Silent mode - Checking every 15s';
+            heartbeat.style.display = 'block';
+            warning.classList.remove('show');
+        } else {
+            btn.classList.remove('active');
+            btn.innerHTML = '<span class="material-symbols-outlined">play_arrow</span><span>START GUARDIAN</span>';
+            statusText.textContent = 'GUARDIAN: INACTIVE';
+            subtext.textContent = 'Tap START to enable notifications';
+            heartbeat.style.display = 'none';
+            
+            // Show warning if there are pending tasks
+            const pendingTasks = tasks.filter(t => !t.done && new Date(t.time) > new Date());
+            if (pendingTasks.length > 0) {
+                warning.classList.add('show');
+            }
+        }
+    }
+
+    function toggleTestMode() {
+        testMode = !testMode;
+        const toggle = document.getElementById('testToggle');
+        toggle.classList.toggle('active', testMode);
+
+        // If guardian is active, restart with new mode
+        if (guardianActive) {
+            if (testMode) {
+                // Start test beeps
+                if (testBeepInterval) clearInterval(testBeepInterval);
+                testBeepInterval = setInterval(playTestBeep, 15000);
+                playTestBeep();
+                log('Test beeps enabled');
+            } else {
+                // Stop test beeps
+                if (testBeepInterval) {
+                    clearInterval(testBeepInterval);
+                    testBeepInterval = null;
+                }
+                log('Test beeps disabled');
+            }
+            updateGuardianUI();
+        }
+    }
+
+    // ========== NOTIFICATION SYSTEM ==========
+    function checkForDueTasks() {
+        const now = new Date();
+        log('Checking for due tasks at ' + now.toLocaleTimeString());
+        
+        tasks.forEach(task => {
+            if (task.done || task.notified) return;
+            
+            const taskTime = new Date(task.time);
+            const timeDiff = taskTime - now;
+            
+            // Trigger if task is due (within 1 minute window)
+            if (timeDiff <= 60000 && timeDiff >= -60000) {
+                log('Task due: ' + task.title);
+                triggerNotification(task);
+                task.notified = true;
+                render(); // Save state
             }
         });
-    };
+    }
 
-    window.saveTask = async () => {
-        const title = document.getElementById('tTitle').value;
-        if(!title) return;
+    function triggerNotification(task) {
+        // Play beep sound
+        try {
+            document.getElementById('beep').play().catch(e => log('Audio play failed: ' + e));
+        } catch (err) {
+            log('Beep failed: ' + err);
+        }
+        
+        // Vibrate
+        if ('vibrate' in navigator) {
+            navigator.vibrate([200, 100, 200, 100, 200]);
+        }
+        
+        // Show notification
+        const priorityEmoji = task.priority === 'high' ? '🔴' : task.priority === 'med' ? '🟡' : '🟢';
+        showNotification(
+            `${priorityEmoji} ${task.title}`, 
+            `Priority: ${task.priority.toUpperCase()} • ${formatter.format(new Date(task.time))}`
+        );
+    }
+
+    function showNotification(title, body) {
+        if (Notification.permission === "granted") {
+            try {
+                // Try service worker notification first
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'SHOW_NOTIFICATION',
+                        title: title,
+                        body: body
+                    });
+                } else {
+                    // Fallback to regular notification
+                    new Notification(title, {
+                        body: body,
+                        icon: 'https://cdn-icons-png.flaticon.com/512/906/906334.png',
+                        vibrate: [200, 100, 200],
+                        tag: 'task-alert',
+                        requireInteraction: true
+                    });
+                }
+                log('Notification sent: ' + title);
+            } catch (err) {
+                log('Notification failed: ' + err);
+            }
+        }
+    }
+
+    // ========== TASK MANAGEMENT ==========
+    function migrateTasks() {
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+
+        tasks = tasks.filter(t => {
+            const taskDate = new Date(t.time);
+            const taskDateStr = t.time.split('T')[0];
+
+            // Delete completed tasks older than 24 hours
+            if (t.done && taskDateStr < todayStr) return false;
+
+            // Auto-repeat logic
+            if (t.repeat && !t.done && taskDate < now) {
+                t.time = toLocalISO(new Date(now.getFullYear(), now.getMonth(), now.getDate(), taskDate.getHours(), taskDate.getMinutes()));
+                t.notified = false;
+            }
+
+            return true;
+        });
+
+        render();
+    }
+
+    function saveTask() {
+        const title = document.getElementById('tTitle').value.trim();
+        if (!title) return alert("Please enter a task description.");
+
         const dateVal = document.getElementById('tDate').value;
         let h = parseInt(document.getElementById('tHour').value);
         const m = document.getElementById('tMin').value.padStart(2, '0');
         const p = document.getElementById('tPeriod').value;
+        
         if (p === "PM" && h < 12) h += 12;
         if (p === "AM" && h === 12) h = 0;
         const fullTime = `${dateVal}T${String(h).padStart(2, '0')}:${m}`;
 
+        // Collision check
         const collision = tasks.find(t => t.time === fullTime && !t.done && t.id !== editId);
         if (collision) {
             if (!confirm(`Conflict! "${collision.title}" is already scheduled for this time. Add anyway?`)) return;
         }
 
         if(editId) {
-            await updateDoc(doc(db, "tasks", editId), {
-                title, time: fullTime, priority: selectedPriority, repeat: isRepeat, notified: false
-            });
+            const idx = tasks.findIndex(t => t.id === editId);
+            tasks[idx] = { ...tasks[idx], title, time: fullTime, priority: selectedPriority, repeat: isRepeat, notified: false };
             editId = null;
             document.getElementById('btnText').innerText = "Schedule Task";
         } else {
-            await addDoc(tasksCol, {
-                title, time: fullTime, priority: selectedPriority, done: false, notified: false, repeat: isRepeat, createdAt: Date.now()
-            });
+            tasks.push({ id: Date.now(), title, time: fullTime, priority: selectedPriority, done: false, notified: false, repeat: isRepeat });
         }
+        
         resetInput();
-    };
-
-    window.toggle = async (id) => {
-        const t = tasks.find(x => x.id === id);
-        await updateDoc(doc(db, "tasks", id), { done: !t.done });
-    };
-
-    window.del = async (id) => {
-        if(confirm("Delete task?")) await deleteDoc(doc(db, "tasks", id));
-    };
-
-    window.setPriority = (p) => { 
-        selectedPriority = p; 
-        document.querySelectorAll('.priority-pill').forEach(el => el.classList.toggle('active', el.dataset.p === p)); 
-    };
-
-    window.toggleRepeat = () => {
-        isRepeat = !isRepeat;
-        document.getElementById('repeatBtn').style.color = isRepeat ? 'var(--md-primary)' : 'var(--md-outline)';
-    };
-
-    window.snoozeAll = async () => {
-        const batch = writeBatch(db);
-        tasks.forEach(t => {
-            if(!t.done) {
-                let d = new Date(t.time);
-                d.setMinutes(d.getMinutes() + 30);
-                batch.update(doc(db, "tasks", t.id), { time: toLocalISO(d), notified: false });
-            }
-        });
-        await batch.commit();
-    };
-
-    window.fullReset = async () => {
-        if(confirm("Clear all tasks from Cloud forever?")) {
-            const batch = writeBatch(db);
-            tasks.forEach(t => batch.delete(doc(db, "tasks", t.id)));
-            await batch.commit();
-        }
-    };
-
-    window.editTask = (id) => {
-        const t = tasks.find(x => x.id === id);
-        editId = id;
-        document.getElementById('tTitle').value = t.title;
-        window.setPriority(t.priority);
-        isRepeat = t.repeat || false;
-        document.getElementById('repeatBtn').style.color = isRepeat ? 'var(--md-primary)' : 'var(--md-outline)';
-        const d = new Date(t.time);
-        document.getElementById('tDate').value = t.time.split('T')[0];
-        document.getElementById('tHour').value = d.getHours() % 12 || 12;
-        document.getElementById('tMin').value = String(d.getMinutes()).padStart(2, '0');
-        document.getElementById('tPeriod').value = d.getHours() >= 12 ? "PM" : "AM";
-        document.getElementById('btnText').innerText = "Update Task";
-    };
-
-    // REAL-TIME CLOUD LISTENER (Mumbai)
-    const q = query(tasksCol, orderBy("time", "asc"));
-    onSnapshot(q, (snapshot) => {
-        tasks = [];
-        snapshot.forEach(docSnap => {
-            tasks.push({ id: docSnap.id, ...docSnap.data() });
-        });
         render();
-    });
+    }
 
     function render() {
+        tasks.sort((a,b) => new Date(a.time) - new Date(b.time));
+        localStorage.setItem('pro_elite_final', JSON.stringify(tasks));
         const list = document.getElementById('list');
         list.innerHTML = "";
         
@@ -259,7 +584,7 @@
             card.className = `task-card p-${t.priority} ${t.done ? 'done' : ''}`;
             card.innerHTML = `
                 <div class="task-main">
-                    <div class="check-circle ${t.done ? 'checked' : ''}" onclick="toggle('${t.id}')">
+                    <div class="check-circle ${t.done ? 'checked' : ''}" onclick="toggle(${t.id})">
                         <span class="material-symbols-outlined" style="font-size:18px">check</span>
                     </div>
                     <div class="task-info">
@@ -269,8 +594,8 @@
                             ${t.repeat ? '<span class="material-symbols-outlined" style="font-size:14px">repeat</span>' : ''}
                         </div>
                     </div>
-                    <button class="btn-icon" onclick="editTask('${t.id}')"><span class="material-symbols-outlined">edit</span></button>
-                    <button class="btn-icon" onclick="del('${t.id}')"><span class="material-symbols-outlined">delete</span></button>
+                    <button class="btn-icon" onclick="editTask(${t.id})"><span class="material-symbols-outlined">edit</span></button>
+                    <button class="btn-icon" onclick="del(${t.id})"><span class="material-symbols-outlined">delete</span></button>
                 </div>
             `;
             list.appendChild(card);
@@ -279,6 +604,7 @@
         const completed = tasks.filter(t => t.done).length;
         document.getElementById('progressBar').style.width = (tasks.length ? (completed/tasks.length)*100 : 0) + '%';
         findGaps();
+        updateGuardianUI(); // Update warning if needed
     }
 
     function findGaps() {
@@ -286,6 +612,7 @@
         container.innerHTML = "";
         let check = new Date();
         check.setMinutes(check.getMinutes() < 30 ? 30 : 60, 0, 0);
+        
         for(let i=0; i<6; i++) {
             const timeStr = toLocalISO(check);
             if (!tasks.some(t => !t.done && t.time === timeStr)) {
@@ -294,6 +621,7 @@
                 chip.innerText = formatter.format(check);
                 chip.onclick = () => {
                     const d = new Date(timeStr);
+                    document.getElementById('tDate').value = timeStr.split('T')[0];
                     document.getElementById('tHour').value = d.getHours() % 12 || 12;
                     document.getElementById('tMin').value = String(d.getMinutes()).padStart(2, '0');
                     document.getElementById('tPeriod').value = d.getHours() >= 12 ? "PM" : "AM";
@@ -304,66 +632,131 @@
         }
     }
 
+    function toggleRepeat() {
+        isRepeat = !isRepeat;
+        document.getElementById('repeatBtn').style.color = isRepeat ? 'var(--md-primary)' : 'var(--md-outline)';
+    }
+
+    function fullReset() {
+        if(confirm("Clear all tasks and history forever?")) {
+            tasks = [];
+            localStorage.removeItem('pro_elite_final');
+            render();
+        }
+    }
+
     function resetInput() {
         document.getElementById('tTitle').value = "";
         isRepeat = false;
         document.getElementById('repeatBtn').style.color = 'var(--md-outline)';
     }
 
-    // Local notification trigger (until we finish the Cloud Brain)
-    setInterval(() => {
-        const now = toLocalISO(new Date()).slice(0, 16);
-        tasks.forEach(async t => {
-            if (!t.done && t.time.slice(0, 16) === now && !t.notified) {
-                await updateDoc(doc(db, "tasks", t.id), { notified: true });
-                document.getElementById('beep').play();
-                if (Notification.permission === "granted" && 'serviceWorker' in navigator) {
-                    navigator.serviceWorker.ready.then(reg => {
-                        reg.active.postMessage({ type: 'SHOW_NOTIFICATION', title: "Task Due!", body: t.title });
-                    });
-                }
-                
-                if (t.repeat) {
-                    const nextDay = new Date(t.time);
-                    nextDay.setDate(nextDay.getDate() + 1);
-                    await addDoc(tasksCol, {
-                        title: t.title, time: toLocalISO(nextDay), priority: t.priority, done: false, notified: false, repeat: true, createdAt: Date.now()
-                    });
-                }
+    function setPriority(p) { 
+        selectedPriority = p; 
+        document.querySelectorAll('.priority-pill').forEach(el => el.classList.toggle('active', el.dataset.p === p)); 
+    }
+    
+    function toggle(id) { 
+        const task = tasks.find(x => x.id === id);
+        task.done = !task.done; 
+        render(); 
+    }
+    
+    function del(id) { 
+        if (confirm('Delete this task?')) {
+            tasks = tasks.filter(x => x.id !== id); 
+            render(); 
+        }
+    }
+    
+    function snoozeAll() { 
+        tasks.forEach(t => { 
+            if(!t.done){ 
+                let d = new Date(t.time); 
+                d.setMinutes(d.getMinutes()+30); 
+                t.time = toLocalISO(d); 
+                t.notified = false;
             }
-        });
-    }, 15000);
+        }); 
+        render(); 
+    }
 
-    // Other UI logic
-    window.exportData = () => {
+    function editTask(id) {
+        const t = tasks.find(x => x.id === id);
+        editId = id;
+        document.getElementById('tTitle').value = t.title;
+        setPriority(t.priority);
+        isRepeat = t.repeat || false;
+        document.getElementById('repeatBtn').style.color = isRepeat ? 'var(--md-primary)' : 'var(--md-outline)';
+        const d = new Date(t.time);
+        document.getElementById('tDate').value = t.time.split('T')[0];
+        document.getElementById('tHour').value = d.getHours() % 12 || 12;
+        document.getElementById('tMin').value = String(d.getMinutes()).padStart(2, '0');
+        document.getElementById('tPeriod').value = d.getHours() >= 12 ? "PM" : "AM";
+        document.getElementById('btnText').innerText = "Update Task";
+    }
+
+    function exportData() {
         const blob = new Blob([JSON.stringify(tasks)], {type: 'application/json'});
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "protask_backup.json"; a.click();
-    };
+        const a = document.createElement('a'); 
+        a.href = URL.createObjectURL(blob); 
+        a.download = "protask_backup.json"; 
+        a.click();
+    }
 
-    window.importData = async (event) => {
+    function importData(event) {
         const reader = new FileReader();
-        reader.onload = async (e) => { 
-            const imported = JSON.parse(e.target.result);
-            const batch = writeBatch(db);
-            imported.forEach(t => {
-                const newDoc = doc(tasksCol);
-                batch.set(newDoc, { ...t, createdAt: Date.now() });
-            });
-            await batch.commit();
+        reader.onload = (e) => { 
+            tasks = JSON.parse(e.target.result); 
+            render(); 
         };
         reader.readAsText(event.target.files[0]);
-    };
+    }
 
-    window.startVoice = () => {
+    function startVoice() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) return alert("Not supported.");
+        if (!SpeechRecognition) return alert("Voice input not supported.");
         const rec = new SpeechRecognition();
-        rec.onresult = (e) => { document.getElementById('tTitle').value = e.results[0][0].transcript; };
+        rec.onresult = (e) => { 
+            document.getElementById('tTitle').value = e.results[0][0].transcript; 
+        };
         rec.start();
-    };
+    }
 
+    // ========== AUTO-RESUME & LIFECYCLE ==========
+    // Re-acquire wake lock if visibility changes
+    document.addEventListener('visibilitychange', async () => {
+        if (guardianActive && document.visibilityState === 'visible') {
+            if (wakeLock === null && 'wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    log('Wake lock re-acquired after visibility change');
+                } catch (err) {
+                    log('Wake lock re-acquire failed: ' + err);
+                }
+            }
+        }
+    });
+
+    // Detect audio interruption and warn user
+    if (audioContext) {
+        audioContext.onstatechange = () => {
+            if (audioContext.state === 'interrupted' || audioContext.state === 'suspended') {
+                log('Audio interrupted! State: ' + audioContext.state);
+                if (guardianActive) {
+                    document.getElementById('warningBanner').classList.add('show');
+                    document.getElementById('warningText').textContent = 'Audio interrupted! Tap STOP then START to resume.';
+                }
+            }
+        };
+    }
+
+    // ========== INITIALIZATION ==========
     window.onload = () => {
+        migrateTasks();
         document.getElementById('tDate').value = new Date().toISOString().split('T')[0];
+        render();
+        log('App loaded');
     };
 </script>
 </body>
